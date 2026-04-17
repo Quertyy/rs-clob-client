@@ -98,7 +98,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Limit order
-    let expiration_ts = (Utc::now() + TimeDelta::days(2)).timestamp() as u64;
+    let expiration_ts = (Utc::now() + TimeDelta::days(2)).timestamp().cast_unsigned();
     let limit_order = client
         .limit_order()
         .token_id(token_id)
