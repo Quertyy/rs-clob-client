@@ -9,7 +9,6 @@ mod common;
 use std::str::FromStr as _;
 
 use alloy::primitives::U256;
-use chrono::{DateTime, Utc};
 use httpmock::MockServer;
 use polymarket_client_sdk::clob::types::response::OrderSummary;
 use polymarket_client_sdk::clob::types::{Amount, OrderType, Side, SignatureType, TickSize};
@@ -1270,6 +1269,207 @@ mod limit {
             .await?;
 
         Ok(())
+    }
+}
+
+mod v2_fields {
+    use alloy::primitives::B256;
+
+    use super::*;
+
+    mod builder_code {
+        use super::*;
+
+        #[tokio::test]
+        async fn none_defaults_to_zero() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .build()
+                .await?;
+
+            assert_eq!(order.order.builder, B256::ZERO);
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn propagates_when_set() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let builder_code =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+                    .parse::<B256>()?;
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .builder_code(builder_code)
+                .build()
+                .await?;
+
+            assert_eq!(order.order.builder, builder_code);
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn zero_stays_zero() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .builder_code(B256::ZERO)
+                .build()
+                .await?;
+
+            assert_eq!(order.order.builder, B256::ZERO);
+
+            Ok(())
+        }
+    }
+
+    mod metadata {
+        use super::*;
+
+        #[tokio::test]
+        async fn none_defaults_to_zero() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .build()
+                .await?;
+
+            assert_eq!(order.order.metadata, B256::ZERO);
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn propagates_when_set() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let metadata = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                .parse::<B256>()?;
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .metadata(metadata)
+                .build()
+                .await?;
+
+            assert_eq!(order.order.metadata, metadata);
+
+            Ok(())
+        }
+    }
+
+    mod expiration {
+        use super::*;
+
+        #[tokio::test]
+        async fn none_defaults_to_none() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .build()
+                .await?;
+
+            assert_eq!(order.expiration, None);
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn propagates_when_set() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .expiration(1234567)
+                .build()
+                .await?;
+
+            assert_eq!(order.expiration, Some(1234567));
+
+            Ok(())
+        }
+    }
+
+    mod timestamp {
+        use super::*;
+
+        #[tokio::test]
+        async fn is_generated() -> anyhow::Result<()> {
+            let server = MockServer::start();
+            let client = create_authenticated(&server).await?;
+
+            ensure_requirements(&server, token_1(), TickSize::Tenth);
+
+            let order = client
+                .limit_order()
+                .token_id(token_1())
+                .price(dec!(0.5))
+                .size(dec!(21.04))
+                .side(Side::Buy)
+                .build()
+                .await?;
+
+            assert!(!order.order.timestamp.is_zero());
+
+            Ok(())
+        }
     }
 }
 
