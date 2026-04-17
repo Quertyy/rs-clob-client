@@ -68,6 +68,30 @@ mod unauthenticated {
     }
 
     #[tokio::test]
+    async fn version_should_succeed() -> anyhow::Result<()> {
+        let server = MockServer::start();
+        let client = Client::new(&server.base_url(), Config::default())?;
+
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/version");
+            then.status(StatusCode::OK)
+                .json_body(json!({ "version": 2 }));
+        });
+
+        let response = client.version().await?;
+
+        assert_eq!(response, 2);
+        mock.assert();
+
+        // Second call should use cache and not hit the server
+        let response2 = client.version().await?;
+        assert_eq!(response2, 2);
+        mock.assert_hits(1); // still only 1 hit
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn server_time_should_succeed() -> anyhow::Result<()> {
         let server = MockServer::start();
         let client = Client::new(&server.base_url(), Config::default())?;
@@ -3122,7 +3146,7 @@ mod builder_authenticated {
                         "id": "1",
                         "tradeType": "limit",
                         "takerOrderHash": "0x0000000000000000000000000000000000000000000000000074616b65726f72",
-                        "builder": "0x00000000000000000000000000006275696c6431",
+                        "builder": "019b618b-4a91-7dd9-a4c9-aadfbcbd5b95",
                         "market": "0x000000000000000000000000000000000000000000000000000000006d61726b",
                         "assetId": token_1(),
                         "side": "buy",
@@ -3164,7 +3188,7 @@ mod builder_authenticated {
             .taker_order_hash(b256!(
                 "0000000000000000000000000000000000000000000000000074616b65726f72"
             ))
-            .builder(address!("00000000000000000000000000006275696c6431"))
+            .builder(Uuid::parse_str("019b618b-4a91-7dd9-a4c9-aadfbcbd5b95").unwrap())
             .market(b256!(
                 "000000000000000000000000000000000000000000000000000000006d61726b"
             ))
@@ -3203,5 +3227,40 @@ mod builder_authenticated {
         mock4.assert();
 
         Ok(())
+    }
+
+    #[test]
+    fn builder_trade_response_deserializes_empty_strings() {
+        let json = json!({
+            "id": "1",
+            "tradeType": "limit",
+            "takerOrderHash": "",
+            "builder": "019b618b-4a91-7dd9-a4c9-aadfbcbd5b95",
+            "market": "",
+            "assetId": "123",
+            "side": "buy",
+            "size": "10.0",
+            "sizeUsdc": "100.0",
+            "price": "0.45",
+            "status": "MATCHED",
+            "outcome": "YES",
+            "outcomeIndex": 0,
+            "owner": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+            "maker": "0x2222222222222222222222222222222222222222",
+            "transactionHash": "",
+            "matchTime": "1758579597",
+            "bucketIndex": 3,
+            "fee": "0.1",
+            "feeUsdc": "1.0"
+        });
+
+        let trade: BuilderTradeResponse = serde_json::from_value(json).unwrap();
+        assert_eq!(trade.taker_order_hash, None);
+        assert_eq!(trade.market, None);
+        assert_eq!(trade.transaction_hash, None);
+        assert_eq!(
+            trade.builder,
+            Uuid::parse_str("019b618b-4a91-7dd9-a4c9-aadfbcbd5b95").unwrap()
+        );
     }
 }

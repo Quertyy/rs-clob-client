@@ -21,6 +21,18 @@ use crate::clob::types::{OrderStatusType, OrderType, Side, TickSize, TradeStatus
 use crate::serde_helpers::StringFromAny;
 use crate::types::{Address, B256, Decimal, U256};
 
+/// API version response from `/version`.
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct VersionResponse {
+    #[serde(default = "default_version")]
+    pub version: u32,
+}
+
+fn default_version() -> u32 {
+    2
+}
+
 #[non_exhaustive]
 #[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
 pub struct MidpointResponse {
@@ -704,12 +716,14 @@ pub struct BuilderApiKeyResponse {
 pub struct BuilderTradeResponse {
     pub id: String,
     pub trade_type: String,
-    /// Hash of the taker order.
-    pub taker_order_hash: B256,
-    /// Address of the builder.
-    pub builder: Address,
-    /// The market condition ID.
-    pub market: B256,
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub taker_order_hash: Option<B256>,
+    /// Builder API key ID (UUID).
+    pub builder: ApiKey,
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub market: Option<B256>,
     pub asset_id: U256,
     pub side: Side,
     pub size: Decimal,
@@ -719,10 +733,10 @@ pub struct BuilderTradeResponse {
     pub outcome: String,
     pub outcome_index: u32,
     pub owner: ApiKey,
-    /// Address of the maker.
     pub maker: Address,
-    /// On-chain transaction hash.
-    pub transaction_hash: B256,
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub transaction_hash: Option<B256>,
     #[serde_as(as = "TimestampSeconds<String>")]
     pub match_time: DateTime<Utc>,
     pub bucket_index: u32,
