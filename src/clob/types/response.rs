@@ -85,6 +85,68 @@ pub struct NegRiskResponse {
     pub neg_risk: bool,
 }
 
+/// Cached fee parameters for a token, derived from [`MarketDetailsResponse`].
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FeeInfo {
+    /// Platform fee rate (e.g. 0.03 for sports, 0.072 for crypto)
+    pub rate: Decimal,
+    /// Fee exponent applied to `price * (1 - price)`
+    pub exponent: u32,
+}
+
+/// V2 compact market details from `/clob-markets/{conditionId}`.
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct MarketDetailsResponse {
+    /// Condition ID
+    #[serde(rename = "c")]
+    pub condition_id: String,
+    /// YES and NO token descriptors (either may be absent)
+    #[serde(rename = "t")]
+    pub tokens: [Option<ClobToken>; 2],
+    /// Minimum tick size
+    #[serde(rename = "mts")]
+    pub minimum_tick_size: Decimal,
+    /// Whether this market uses neg-risk
+    #[serde(rename = "nr")]
+    #[serde(default)]
+    pub neg_risk: bool,
+    /// Platform fee details (absent for zero-fee markets)
+    #[serde(rename = "fd")]
+    pub fee_details: Option<FeeDetails>,
+}
+
+/// Token descriptor within a [`MarketDetailsResponse`].
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct ClobToken {
+    /// Token ID
+    #[serde(rename = "t")]
+    pub token_id: String,
+    /// Outcome label (e.g. "Yes", "No")
+    #[serde(rename = "o")]
+    pub outcome: String,
+}
+
+/// Fee configuration for a market.
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct FeeDetails {
+    /// Fee rate multiplier
+    #[serde(rename = "r")]
+    #[serde(default)]
+    pub rate: Decimal,
+    /// Exponent applied to `price * (1 - price)`
+    #[serde(rename = "e")]
+    #[serde(default)]
+    pub exponent: u32,
+    /// Whether fees apply only to takers
+    #[serde(rename = "to")]
+    #[serde(default)]
+    pub taker_only: bool,
+}
+
 /// Response from the Polymarket geoblock endpoint.
 ///
 /// This indicates whether the requesting IP address is blocked from placing orders

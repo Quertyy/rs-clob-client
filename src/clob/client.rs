@@ -39,8 +39,9 @@ use crate::clob::types::request::{
 use crate::clob::types::response::{
     ApiKeysResponse, BalanceAllowanceResponse, BanStatusResponse, BuilderApiKeyResponse,
     BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse,
-    GeoblockResponse, HeartbeatResponse, LastTradePriceResponse, LastTradesPricesResponse,
-    MarketResponse, MarketRewardResponse, MidpointResponse, MidpointsResponse, NegRiskResponse,
+    FeeInfo, GeoblockResponse, HeartbeatResponse, LastTradePriceResponse,
+    LastTradesPricesResponse, MarketDetailsResponse, MarketResponse, MarketRewardResponse,
+    MidpointResponse, MidpointsResponse, NegRiskResponse,
     NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse, OrderScoringResponse,
     OrdersScoringResponse, Page, PostOrderResponse, PriceHistoryResponse, PriceResponse,
     PricesResponse, RewardsPercentagesResponse, SimplifiedMarketResponse, SpreadResponse,
@@ -236,6 +237,8 @@ impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
                 client: inner.client,
                 tick_sizes: inner.tick_sizes,
                 neg_risk: inner.neg_risk,
+                fee_infos: inner.fee_infos,
+                token_condition_map: inner.token_condition_map,
                 funder,
                 signature_type: self.signature_type.unwrap_or(SignatureType::Eoa),
                 salt_generator: self.salt_generator.unwrap_or(generate_seed),
@@ -419,6 +422,10 @@ struct ClientInner<S: State> {
     tick_sizes: DashMap<U256, TickSize>,
     /// Local cache representing whether this token is part of a `neg_risk` market
     neg_risk: DashMap<U256, bool>,
+    /// Local cache of [`FeeInfo`] per token ID, populated via `/clob-markets/`
+    fee_infos: DashMap<U256, FeeInfo>,
+    /// Maps token IDs to their condition IDs, populated via `/clob-markets/`
+    token_condition_map: DashMap<U256, String>,
     /// The funder for this [`ClientInner`]. If funder is present, then `signature_type` cannot
     /// be [`SignatureType::Eoa`]. Conversely, if funder is absent, then `signature_type` cannot be
     /// [`SignatureType::Proxy`] or [`SignatureType::GnosisSafe`].
@@ -519,7 +526,7 @@ impl<S: State> Client<S> {
         &self.inner.host
     }
 
-    /// Invalidates all internal caches (tick sizes and neg risk flags).
+    /// Invalidates all internal caches (tick sizes, neg risk flags, fee info, and token mappings).
     ///
     /// This method clears the cached market configuration data, forcing subsequent
     /// requests to fetch fresh data from the API. Use this when you suspect
@@ -527,6 +534,8 @@ impl<S: State> Client<S> {
     pub fn invalidate_internal_caches(&self) {
         self.inner.tick_sizes.clear();
         self.inner.neg_risk.clear();
+        self.inner.fee_infos.clear();
+        self.inner.token_condition_map.clear();
     }
 
     /// Pre-populates the tick size cache for a token, avoiding the HTTP call.
@@ -820,6 +829,56 @@ impl<S: State> Client<S> {
         tracing::trace!(token_id = %token_id, "cached neg_risk");
 
         Ok(response)
+    }
+
+    /// Retrieves compact market details including fee parameters, tick size, and token mappings.
+    ///
+    /// Results are cached internally: fee info, tick sizes, neg risk flags, and
+    /// token-to-condition ID mappings are all populated from a single call.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or the condition ID is invalid.
+    pub async fn clob_market_info(
+        &self,
+        condition_id: &str,
+    ) -> Result<MarketDetailsResponse> {
+        let request = self
+            .client()
+            .request(
+                Method::GET,
+                format!("{}clob-markets/{condition_id}", self.host()),
+            )
+            .build()?;
+
+        let response =
+            crate::request::<MarketDetailsResponse>(&self.inner.client, request, None).await?;
+
+        if let Some(ref fd) = response.fee_details {
+            let fee_info = FeeInfo {
+                rate: fd.rate,
+                exponent: fd.exponent,
+            };
+            for token in response.tokens.iter().flatten() {
+                if let Ok(token_id) = token.token_id.parse::<U256>() {
+                    self.inner.fee_infos.insert(token_id, fee_info);
+                    self.inner
+                        .token_condition_map
+                        .insert(token_id, condition_id.to_owned());
+                    self.inner.neg_risk.insert(token_id, response.neg_risk);
+                }
+            }
+        }
+
+        Ok(response)
+    }
+
+    /// Retrieves the cached [`FeeInfo`] for a token, if available.
+    ///
+    /// Call [`Self::clob_market_info`] first to populate the cache.
+    #[must_use]
+    pub fn fee_info(&self, token_id: &U256) -> Option<FeeInfo> {
+        self.inner.fee_infos.get(token_id).map(|r| *r)
     }
 
     /// Checks if the current IP address is geoblocked from accessing Polymarket.
@@ -1167,6 +1226,8 @@ impl Client<Unauthenticated> {
                 client,
                 tick_sizes: DashMap::new(),
                 neg_risk: DashMap::new(),
+                fee_infos: DashMap::new(),
+                token_condition_map: DashMap::new(),
                 state: Unauthenticated,
                 funder: None,
                 signature_type: SignatureType::Eoa,
@@ -1282,6 +1343,8 @@ impl<K: Kind> Client<Authenticated<K>> {
                 client: inner.client,
                 tick_sizes: inner.tick_sizes,
                 neg_risk: inner.neg_risk,
+                fee_infos: inner.fee_infos,
+                token_condition_map: inner.token_condition_map,
                 // Reset the order parameters that were previously stored on the client
                 funder: None,
                 signature_type: SignatureType::Eoa,
@@ -2139,6 +2202,8 @@ impl Client<Authenticated<Normal>> {
             client: inner.client,
             tick_sizes: inner.tick_sizes,
             neg_risk: inner.neg_risk,
+            fee_infos: inner.fee_infos,
+            token_condition_map: inner.token_condition_map,
             funder: inner.funder,
             signature_type: inner.signature_type,
             salt_generator: inner.salt_generator,

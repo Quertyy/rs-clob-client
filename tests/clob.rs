@@ -492,6 +492,51 @@ mod unauthenticated {
     }
 
     #[tokio::test]
+    async fn clob_market_info_should_succeed() -> anyhow::Result<()> {
+        let server = MockServer::start();
+        let client = Client::new(&server.base_url(), Config::default())?;
+        let condition_id = "0xabc123";
+
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path(format!("/clob-markets/{condition_id}"));
+            then.status(StatusCode::OK).json_body(json!({
+                "c": condition_id,
+                "t": [
+                    { "t": token_1().to_string(), "o": "Yes" },
+                    { "t": token_2().to_string(), "o": "No" }
+                ],
+                "mts": 0.01,
+                "nr": false,
+                "fd": {
+                    "r": 0.04,
+                    "e": 1,
+                    "to": true
+                }
+            }));
+        });
+
+        let response = client.clob_market_info(condition_id).await?;
+
+        assert_eq!(response.condition_id, condition_id);
+        assert_eq!(response.minimum_tick_size, dec!(0.01));
+        assert!(!response.neg_risk);
+        let fd = response.fee_details.unwrap();
+        assert_eq!(fd.rate, dec!(0.04));
+        assert_eq!(fd.exponent, 1);
+        assert!(fd.taker_only);
+
+        // Verify caches were populated
+        let fee_info = client.fee_info(&token_1()).unwrap();
+        assert_eq!(fee_info.rate, dec!(0.04));
+        assert_eq!(fee_info.exponent, 1);
+
+        mock.assert();
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn order_book_should_succeed() -> anyhow::Result<()> {
         let server = MockServer::start();
         let client = Client::new(&server.base_url(), Config::default())?;
