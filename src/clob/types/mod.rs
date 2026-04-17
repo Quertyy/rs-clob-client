@@ -425,10 +425,7 @@ impl<'de> Deserialize<'de> for TickSize {
 }
 
 sol! {
-    /// Alloy solidity type representing a V2 order in the context of the Polymarket exchange.
-    ///
-    /// V2 orders include `timestamp`, `metadata`, and `builder` fields, and no longer include
-    /// `taker`, `nonce`, `feeRateBps`, or `expiration` in the signed struct.
+    /// EIP-712 order struct for signing.
     #[non_exhaustive]
     #[serde_as]
     #[derive(Serialize, Debug, Default, PartialEq)]
@@ -469,8 +466,6 @@ pub struct SignableOrder {
     pub order_type: OrderType,
     #[serde(rename = "postOnly", skip_serializing_if = "Option::is_none")]
     pub post_only: Option<bool>,
-    /// Expiration timestamp in seconds (not part of EIP-712 signature in V2, but sent to API).
-    /// Defaults to 0 (no expiration).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration: Option<u64>,
 }
@@ -483,13 +478,10 @@ pub struct SignedOrder {
     pub order_type: OrderType,
     pub owner: ApiKey,
     pub post_only: Option<bool>,
-    /// Expiration timestamp in seconds (not part of EIP-712 signature in V2, but sent to API).
-    /// Defaults to 0 (no expiration).
     pub expiration: Option<u64>,
 }
 
-/// Helper struct for serializing V2 Order with signature injected.
-/// This avoids the overhead of `serde_json::to_value()` followed by mutation.
+/// Helper struct for serializing Order with signature injected.
 #[serde_as]
 #[derive(Serialize)]
 struct OrderWithSignature<'order> {
@@ -514,10 +506,8 @@ struct OrderWithSignature<'order> {
     timestamp: &'order U256,
     metadata: &'order B256,
     builder: &'order B256,
-    /// Expiration in seconds (not signed in V2, but sent to API). Defaults to "0".
     #[serde_as(as = "DisplayFromStr")]
     expiration: u64,
-    /// Signature injected into the order object
     signature: String,
 }
 

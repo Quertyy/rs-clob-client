@@ -47,11 +47,8 @@ pub struct OrderBuilder<OrderKind, K: AuthKind> {
     pub(crate) order_type: Option<OrderType>,
     pub(crate) post_only: Option<bool>,
     pub(crate) funder: Option<Address>,
-    /// Expiration timestamp in seconds (not signed in V2, but sent to API). 0 = no expiration.
     pub(crate) expiration: Option<u64>,
-    /// Metadata field for V2 orders (bytes32). Defaults to zero.
     pub(crate) metadata: Option<B256>,
-    /// Builder code for V2 orders (bytes32). Defaults to zero.
     pub(crate) builder_code: Option<B256>,
     pub(crate) _kind: PhantomData<OrderKind>,
 }
@@ -72,7 +69,6 @@ impl<OrderKind, K: AuthKind> OrderBuilder<OrderKind, K> {
     }
 
     /// Sets the expiration timestamp in seconds. 0 = no expiration.
-    /// Note: In V2, expiration is NOT part of the EIP-712 signature but is sent to the API.
     #[must_use]
     pub fn expiration(mut self, expiration: u64) -> Self {
         self.expiration = Some(expiration);
@@ -85,21 +81,18 @@ impl<OrderKind, K: AuthKind> OrderBuilder<OrderKind, K> {
         self
     }
 
-    /// Sets the `postOnly` flag for this builder.
     #[must_use]
     pub fn post_only(mut self, post_only: bool) -> Self {
         self.post_only = Some(post_only);
         self
     }
 
-    /// Sets the metadata field (bytes32) for V2 orders. Defaults to zero.
     #[must_use]
     pub fn metadata(mut self, metadata: B256) -> Self {
         self.metadata = Some(metadata);
         self
     }
 
-    /// Sets the builder code (bytes32) for V2 orders. Defaults to zero.
     #[must_use]
     pub fn builder_code(mut self, builder_code: B256) -> Self {
         self.builder_code = Some(builder_code);
@@ -477,7 +470,6 @@ fn to_ieee_754_int(salt: u64) -> u64 {
     salt & ((1 << 53) - 1)
 }
 
-/// Generates a random seed for order salt based on current time and randomness.
 #[must_use]
 #[expect(
     clippy::float_arithmetic,
@@ -499,7 +491,6 @@ pub(crate) fn generate_seed() -> u64 {
     (seconds * rand).round() as u64
 }
 
-/// Generates a timestamp in milliseconds since Unix epoch for V2 orders.
 #[must_use]
 #[expect(
     clippy::cast_possible_truncation,

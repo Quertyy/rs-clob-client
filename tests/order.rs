@@ -571,8 +571,6 @@ mod limit {
 
         ensure_requirements(&server, token_1(), TickSize::Tenth);
 
-        // V2: Expiration is allowed for all order types since it's not part of
-        // the signed order. This test verifies that expiration can be set for GTC orders.
         let result = client
             .limit_order()
             .token_id(token_1())
@@ -583,7 +581,7 @@ mod limit {
             .build()
             .await;
 
-        assert!(result.is_ok(), "V2 allows expiration for any order type");
+        assert!(result.is_ok());
         assert_eq!(result.unwrap().expiration, Some(50000));
 
         Ok(())

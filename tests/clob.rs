@@ -1521,7 +1521,6 @@ mod authenticated {
             TickSize::Thousandth
         );
 
-        // V2 orders no longer have taker or nonce fields
         let signable_order = client
             .limit_order()
             .token_id(token_1())
@@ -1533,7 +1532,6 @@ mod authenticated {
 
         let signed_order = client.sign(&signer, signable_order.clone()).await?;
 
-        // V2 order structure: salt, maker, signer, tokenId, makerAmount, takerAmount, side, signatureType, timestamp, metadata, builder
         assert_eq!(signed_order.order.maker, funder);
         assert_ne!(signed_order.order.maker, client.address());
         assert_eq!(signed_order.order.signatureType, SignatureType::Proxy as u8);
@@ -1557,8 +1555,6 @@ mod authenticated {
 
         ensure_requirements(&server, token_1(), TickSize::Hundredth);
 
-        // Note: Not verifying exact JSON body since V2 signatures are non-deterministic
-        // due to timestamp field. Body format is verified in unit tests.
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/order")

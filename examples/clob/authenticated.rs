@@ -98,7 +98,6 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Limit order
-    // V2 orders use expiration as Unix timestamp in seconds (0 = no expiration)
     let expiration_ts = (Utc::now() + TimeDelta::days(2)).timestamp() as u64;
     let limit_order = client
         .limit_order()

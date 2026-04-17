@@ -61,7 +61,6 @@ use crate::{
 };
 
 const ORDER_NAME: Option<Cow<'static, str>> = Some(Cow::Borrowed("Polymarket CTF Exchange"));
-/// EIP-712 domain version for V2 exchange orders.
 const VERSION: Option<Cow<'static, str>> = Some(Cow::Borrowed("2"));
 
 const TERMINAL_CURSOR: &str = "LTE="; // base64("-1")
@@ -87,11 +86,8 @@ pub struct AuthenticationBuilder<'signer, S: Signer, K: Kind = Normal> {
     funder: Option<Address>,
     /// The optional [`SignatureType`], see `funder` for more information.
     signature_type: Option<SignatureType>,
-    /// The optional salt/seed generator for use in creating [`SignableOrder`]s
     salt_generator: Option<fn() -> u64>,
-    /// Default metadata for V2 orders (bytes32). Defaults to zero.
     default_metadata: Option<B256>,
-    /// Default builder code for V2 orders (bytes32). Defaults to zero.
     default_builder_code: Option<B256>,
 }
 
@@ -126,14 +122,12 @@ impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
         self
     }
 
-    /// Sets the default metadata (bytes32) for V2 orders.
     #[must_use]
     pub fn default_metadata(mut self, metadata: B256) -> Self {
         self.default_metadata = Some(metadata);
         self
     }
 
-    /// Sets the default builder code (bytes32) for V2 orders.
     #[must_use]
     pub fn default_builder_code(mut self, builder_code: B256) -> Self {
         self.default_builder_code = Some(builder_code);
@@ -432,11 +426,8 @@ struct ClientInner<S: State> {
     funder: Option<Address>,
     /// The signature type for this [`ClientInner`]. Defaults to [`SignatureType::Eoa`]
     signature_type: SignatureType,
-    /// The salt/seed generator for use in creating [`SignableOrder`]s
     salt_generator: fn() -> u64,
-    /// Default metadata for V2 orders (bytes32). Defaults to zero.
     default_metadata: Option<B256>,
-    /// Default builder code for V2 orders (bytes32). Defaults to zero.
     default_builder_code: Option<B256>,
 }
 
