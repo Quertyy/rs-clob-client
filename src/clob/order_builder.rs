@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy::primitives::U256;
-use chrono::{DateTime, Utc};
+use alloy::primitives::{B256, U256};
 use rand::RngExt as _;
 use rust_decimal::prelude::ToPrimitive as _;
 
@@ -39,17 +38,21 @@ pub struct OrderBuilder<OrderKind, K: AuthKind> {
     pub(crate) signer: Address,
     pub(crate) signature_type: SignatureType,
     pub(crate) salt_generator: fn() -> u64,
+    pub(crate) timestamp_generator: fn() -> u64,
     pub(crate) token_id: Option<U256>,
     pub(crate) price: Option<Decimal>,
     pub(crate) size: Option<Decimal>,
     pub(crate) amount: Option<Amount>,
     pub(crate) side: Option<Side>,
-    pub(crate) nonce: Option<u64>,
-    pub(crate) expiration: Option<DateTime<Utc>>,
-    pub(crate) taker: Option<Address>,
     pub(crate) order_type: Option<OrderType>,
     pub(crate) post_only: Option<bool>,
     pub(crate) funder: Option<Address>,
+    /// Expiration timestamp in seconds (not signed in V2, but sent to API). 0 = no expiration.
+    pub(crate) expiration: Option<u64>,
+    /// Metadata field for V2 orders (bytes32). Defaults to zero.
+    pub(crate) metadata: Option<B256>,
+    /// Builder code for V2 orders (bytes32). Defaults to zero.
+    pub(crate) builder_code: Option<B256>,
     pub(crate) _kind: PhantomData<OrderKind>,
 }
 
@@ -68,22 +71,11 @@ impl<OrderKind, K: AuthKind> OrderBuilder<OrderKind, K> {
         self
     }
 
-    /// Sets the nonce for this builder.
+    /// Sets the expiration timestamp in seconds. 0 = no expiration.
+    /// Note: In V2, expiration is NOT part of the EIP-712 signature but is sent to the API.
     #[must_use]
-    pub fn nonce(mut self, nonce: u64) -> Self {
-        self.nonce = Some(nonce);
-        self
-    }
-
-    #[must_use]
-    pub fn expiration(mut self, expiration: DateTime<Utc>) -> Self {
+    pub fn expiration(mut self, expiration: u64) -> Self {
         self.expiration = Some(expiration);
-        self
-    }
-
-    #[must_use]
-    pub fn taker(mut self, taker: Address) -> Self {
-        self.taker = Some(taker);
         self
     }
 
@@ -97,6 +89,20 @@ impl<OrderKind, K: AuthKind> OrderBuilder<OrderKind, K> {
     #[must_use]
     pub fn post_only(mut self, post_only: bool) -> Self {
         self.post_only = Some(post_only);
+        self
+    }
+
+    /// Sets the metadata field (bytes32) for V2 orders. Defaults to zero.
+    #[must_use]
+    pub fn metadata(mut self, metadata: B256) -> Self {
+        self.metadata = Some(metadata);
+        self
+    }
+
+    /// Sets the builder code (bytes32) for V2 orders. Defaults to zero.
+    #[must_use]
+    pub fn builder_code(mut self, builder_code: B256) -> Self {
+        self.builder_code = Some(builder_code);
         self
     }
 }
@@ -146,7 +152,6 @@ impl<K: AuthKind> OrderBuilder<Limit, K> {
             )));
         }
 
-        let fee_rate = self.client.fee_rate_bps(token_id).await?;
         let minimum_tick_size = self
             .client
             .tick_size(token_id)
@@ -190,17 +195,9 @@ impl<K: AuthKind> OrderBuilder<Limit, K> {
             )));
         }
 
-        let nonce = self.nonce.unwrap_or(0);
-        let expiration = self.expiration.unwrap_or(DateTime::<Utc>::UNIX_EPOCH);
-        let taker = self.taker.unwrap_or(Address::ZERO);
         let order_type = self.order_type.unwrap_or(OrderType::GTC);
         let post_only = Some(self.post_only.unwrap_or(false));
-
-        if !matches!(order_type, OrderType::GTD) && expiration > DateTime::<Utc>::UNIX_EPOCH {
-            return Err(Error::validation(
-                "Only GTD orders may have a non-zero expiration",
-            ));
-        }
+        let expiration = self.expiration;
 
         if post_only == Some(true) && !matches!(order_type, OrderType::GTC | OrderType::GTD) {
             return Err(Error::validation(
@@ -230,22 +227,20 @@ impl<K: AuthKind> OrderBuilder<Limit, K> {
         };
 
         let salt = to_ieee_754_int((self.salt_generator)());
+        let timestamp = (self.timestamp_generator)();
 
         let order = Order {
             salt: U256::from(salt),
             maker: self.funder.unwrap_or(self.signer),
-            taker,
+            signer: self.signer,
             tokenId: token_id,
             makerAmount: U256::from(to_fixed_u128(maker_amount)),
             takerAmount: U256::from(to_fixed_u128(taker_amount)),
             side: side as u8,
-            feeRateBps: U256::from(fee_rate.base_fee),
-            nonce: U256::from(nonce),
-            signer: self.signer,
-            expiration: U256::from(expiration.timestamp().to_u64().ok_or(Error::validation(
-                format!("Unable to represent expiration {expiration} as a u64"),
-            ))?),
             signatureType: self.signature_type as u8,
+            timestamp: U256::from(timestamp),
+            metadata: self.metadata.unwrap_or(B256::ZERO),
+            builder: self.builder_code.unwrap_or(B256::ZERO),
         };
 
         #[cfg(feature = "tracing")]
@@ -255,6 +250,7 @@ impl<K: AuthKind> OrderBuilder<Limit, K> {
             order,
             order_type,
             post_only,
+            expiration,
         })
     }
 }
@@ -362,9 +358,6 @@ impl<K: AuthKind> OrderBuilder<Market, K> {
             .amount
             .ok_or_else(|| Error::validation("Unable to build Order due to missing amount"))?;
 
-        let nonce = self.nonce.unwrap_or(0);
-        let taker = self.taker.unwrap_or(Address::ZERO);
-
         let order_type = self.order_type.clone().unwrap_or(OrderType::FAK);
         let post_only = self.post_only;
         if post_only == Some(true) {
@@ -383,7 +376,6 @@ impl<K: AuthKind> OrderBuilder<Market, K> {
             .await?
             .minimum_tick_size
             .as_decimal();
-        let fee_rate = self.client.fee_rate_bps(token_id).await?;
 
         let decimals = minimum_tick_size.scale();
 
@@ -442,20 +434,20 @@ impl<K: AuthKind> OrderBuilder<Market, K> {
         };
 
         let salt = to_ieee_754_int((self.salt_generator)());
+        let timestamp = (self.timestamp_generator)();
 
         let order = Order {
             salt: U256::from(salt),
             maker: self.funder.unwrap_or(self.signer),
-            taker,
+            signer: self.signer,
             tokenId: token_id,
             makerAmount: U256::from(to_fixed_u128(maker_amount)),
             takerAmount: U256::from(to_fixed_u128(taker_amount)),
             side: side as u8,
-            feeRateBps: U256::from(fee_rate.base_fee),
-            nonce: U256::from(nonce),
-            signer: self.signer,
-            expiration: U256::ZERO,
             signatureType: self.signature_type as u8,
+            timestamp: U256::from(timestamp),
+            metadata: self.metadata.unwrap_or(B256::ZERO),
+            builder: self.builder_code.unwrap_or(B256::ZERO),
         };
 
         #[cfg(feature = "tracing")]
@@ -465,6 +457,7 @@ impl<K: AuthKind> OrderBuilder<Market, K> {
             order,
             order_type,
             post_only: None,
+            expiration: None,
         })
     }
 }
@@ -484,6 +477,7 @@ fn to_ieee_754_int(salt: u64) -> u64 {
     salt & ((1 << 53) - 1)
 }
 
+/// Generates a random seed for order salt based on current time and randomness.
 #[must_use]
 #[expect(
     clippy::float_arithmetic,
@@ -503,6 +497,19 @@ pub(crate) fn generate_seed() -> u64 {
     let rand = rand::rng().random::<f64>();
 
     (seconds * rand).round() as u64
+}
+
+/// Generates a timestamp in milliseconds since Unix epoch for V2 orders.
+#[must_use]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Milliseconds since epoch will fit in u64 for centuries"
+)]
+pub(crate) fn generate_timestamp_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time went backwards")
+        .as_millis() as u64
 }
 
 #[cfg(test)]

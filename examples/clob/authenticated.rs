@@ -98,11 +98,13 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Limit order
+    // V2 orders use expiration as Unix timestamp in seconds (0 = no expiration)
+    let expiration_ts = (Utc::now() + TimeDelta::days(2)).timestamp() as u64;
     let limit_order = client
         .limit_order()
         .token_id(token_id)
         .order_type(OrderType::GTD)
-        .expiration(Utc::now() + TimeDelta::days(2))
+        .expiration(expiration_ts)
         .price(dec!(0.5))
         .size(Decimal::ONE_HUNDRED)
         .side(Side::Buy)

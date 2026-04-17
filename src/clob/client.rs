@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use alloy::dyn_abi::Eip712Domain;
-use alloy::primitives::U256;
+use alloy::primitives::{B256, U256};
 use alloy::signers::Signer;
 use alloy::sol_types::SolStruct as _;
 use async_stream::try_stream;
@@ -27,7 +27,7 @@ use {tokio::sync::oneshot::Receiver, tokio::time, tokio_util::sync::Cancellation
 use crate::auth::builder::{Builder, Config as BuilderConfig};
 use crate::auth::state::{Authenticated, State, Unauthenticated};
 use crate::auth::{Credentials, Kind, Normal};
-use crate::clob::order_builder::{Limit, Market, OrderBuilder, generate_seed};
+use crate::clob::order_builder::{Limit, Market, OrderBuilder, generate_seed, generate_timestamp_ms};
 use crate::clob::types::request::{
     BalanceAllowanceRequest, CancelMarketOrderRequest, DeleteNotificationsRequest,
     LastTradePriceRequest, MidpointRequest, OrderBookSummaryRequest, OrdersRequest,
@@ -61,7 +61,8 @@ use crate::{
 };
 
 const ORDER_NAME: Option<Cow<'static, str>> = Some(Cow::Borrowed("Polymarket CTF Exchange"));
-const VERSION: Option<Cow<'static, str>> = Some(Cow::Borrowed("1"));
+/// EIP-712 domain version for V2 exchange orders.
+const VERSION: Option<Cow<'static, str>> = Some(Cow::Borrowed("2"));
 
 const TERMINAL_CURSOR: &str = "LTE="; // base64("-1")
 
@@ -88,6 +89,10 @@ pub struct AuthenticationBuilder<'signer, S: Signer, K: Kind = Normal> {
     signature_type: Option<SignatureType>,
     /// The optional salt/seed generator for use in creating [`SignableOrder`]s
     salt_generator: Option<fn() -> u64>,
+    /// Default metadata for V2 orders (bytes32). Defaults to zero.
+    default_metadata: Option<B256>,
+    /// Default builder code for V2 orders (bytes32). Defaults to zero.
+    default_builder_code: Option<B256>,
 }
 
 impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
@@ -118,6 +123,20 @@ impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
     #[must_use]
     pub fn salt_generator(mut self, salt_generator: fn() -> u64) -> Self {
         self.salt_generator = Some(salt_generator);
+        self
+    }
+
+    /// Sets the default metadata (bytes32) for V2 orders.
+    #[must_use]
+    pub fn default_metadata(mut self, metadata: B256) -> Self {
+        self.default_metadata = Some(metadata);
+        self
+    }
+
+    /// Sets the default builder code (bytes32) for V2 orders.
+    #[must_use]
+    pub fn default_builder_code(mut self, builder_code: B256) -> Self {
+        self.default_builder_code = Some(builder_code);
         self
     }
 
@@ -225,6 +244,8 @@ impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
                 funder,
                 signature_type: self.signature_type.unwrap_or(SignatureType::Eoa),
                 salt_generator: self.salt_generator.unwrap_or(generate_seed),
+                default_metadata: self.default_metadata,
+                default_builder_code: self.default_builder_code,
             }),
             #[cfg(feature = "heartbeats")]
             heartbeat_token: DroppingCancellationToken(None),
@@ -413,6 +434,10 @@ struct ClientInner<S: State> {
     signature_type: SignatureType,
     /// The salt/seed generator for use in creating [`SignableOrder`]s
     salt_generator: fn() -> u64,
+    /// Default metadata for V2 orders (bytes32). Defaults to zero.
+    default_metadata: Option<B256>,
+    /// Default builder code for V2 orders (bytes32). Defaults to zero.
+    default_builder_code: Option<B256>,
 }
 
 impl<S: State> ClientInner<S> {
@@ -1216,6 +1241,8 @@ impl Client<Unauthenticated> {
                 funder: None,
                 signature_type: SignatureType::Eoa,
                 salt_generator: generate_seed,
+                default_metadata: None,
+                default_builder_code: None,
             }),
             #[cfg(feature = "heartbeats")]
             heartbeat_token: DroppingCancellationToken(None),
@@ -1263,6 +1290,8 @@ impl Client<Unauthenticated> {
             signature_type: Some(self.inner.signature_type),
             client: self,
             salt_generator: None,
+            default_metadata: None,
+            default_builder_code: None,
         }
     }
 
@@ -1328,6 +1357,8 @@ impl<K: Kind> Client<Authenticated<K>> {
                 funder: None,
                 signature_type: SignatureType::Eoa,
                 salt_generator: generate_seed,
+                default_metadata: None,
+                default_builder_code: None,
             }),
             #[cfg(feature = "heartbeats")]
             heartbeat_token: DroppingCancellationToken(None),
@@ -1438,6 +1469,7 @@ impl<K: Kind> Client<Authenticated<K>> {
             order,
             order_type,
             post_only,
+            expiration,
         }: SignableOrder,
     ) -> Result<SignedOrder> {
         let token_id = order.tokenId;
@@ -1468,6 +1500,7 @@ impl<K: Kind> Client<Authenticated<K>> {
             order_type,
             owner: self.state().credentials.key,
             post_only,
+            expiration,
         })
     }
 
@@ -2115,16 +2148,17 @@ impl<K: Kind> Client<Authenticated<K>> {
             signature_type: self.inner.signature_type,
             funder: self.inner.funder,
             salt_generator: self.inner.salt_generator,
+            timestamp_generator: generate_timestamp_ms,
             token_id: None,
             price: None,
             size: None,
             amount: None,
             side: None,
-            nonce: None,
-            expiration: None,
-            taker: None,
             order_type: None,
             post_only: Some(false),
+            expiration: None,
+            metadata: self.inner.default_metadata,
+            builder_code: self.inner.default_builder_code,
             client: Client {
                 inner: Arc::clone(&self.inner),
                 #[cfg(feature = "heartbeats")]
@@ -2180,6 +2214,8 @@ impl Client<Authenticated<Normal>> {
             funder: inner.funder,
             signature_type: inner.signature_type,
             salt_generator: inner.salt_generator,
+            default_metadata: inner.default_metadata,
+            default_builder_code: inner.default_builder_code,
         };
 
         #[cfg_attr(

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use alloy::core::sol;
-use alloy::primitives::{Signature, U256};
+use alloy::primitives::{B256, Signature, U256};
 use bon::Builder;
 use rust_decimal_macros::dec;
 use serde::ser::{Error as _, SerializeStruct as _};
@@ -238,6 +238,8 @@ pub enum SignatureType {
     Eoa = 0,
     Proxy = 1,
     GnosisSafe = 2,
+    /// EIP-1271 signatures for smart contract wallets/vaults
+    Poly1271 = 3,
 }
 
 /// RFQ state filter for queries.
@@ -423,11 +425,10 @@ impl<'de> Deserialize<'de> for TickSize {
 }
 
 sol! {
-    /// Alloy solidity type representing an order in the context of the Polymarket exchange
+    /// Alloy solidity type representing a V2 order in the context of the Polymarket exchange.
     ///
-    /// <!-- The CLOB expects all `uint256` types, [`U256`], excluding `salt`, to be presented as a
-    /// string so we must serialize as Display, which for U256 is lower hex-encoded string.
-    /// -->
+    /// V2 orders include `timestamp`, `metadata`, and `builder` fields, and no longer include
+    /// `taker`, `nonce`, `feeRateBps`, or `expiration` in the signed struct.
     #[non_exhaustive]
     #[serde_as]
     #[derive(Serialize, Debug, Default, PartialEq)]
@@ -436,21 +437,18 @@ sol! {
         uint256 salt;
         address maker;
         address signer;
-        address taker;
         #[serde_as(as = "DisplayFromStr")]
         uint256 tokenId;
         #[serde_as(as = "DisplayFromStr")]
         uint256 makerAmount;
         #[serde_as(as = "DisplayFromStr")]
         uint256 takerAmount;
-        #[serde_as(as = "DisplayFromStr")]
-        uint256 expiration;
-        #[serde_as(as = "DisplayFromStr")]
-        uint256 nonce;
-        #[serde_as(as = "DisplayFromStr")]
-        uint256 feeRateBps;
         uint8   side;
         uint8   signatureType;
+        #[serde_as(as = "DisplayFromStr")]
+        uint256 timestamp;
+        bytes32 metadata;
+        bytes32 builder;
     }
 }
 
@@ -471,6 +469,10 @@ pub struct SignableOrder {
     pub order_type: OrderType,
     #[serde(rename = "postOnly", skip_serializing_if = "Option::is_none")]
     pub post_only: Option<bool>,
+    /// Expiration timestamp in seconds (not part of EIP-712 signature in V2, but sent to API).
+    /// Defaults to 0 (no expiration).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expiration: Option<u64>,
 }
 
 #[non_exhaustive]
@@ -481,9 +483,12 @@ pub struct SignedOrder {
     pub order_type: OrderType,
     pub owner: ApiKey,
     pub post_only: Option<bool>,
+    /// Expiration timestamp in seconds (not part of EIP-712 signature in V2, but sent to API).
+    /// Defaults to 0 (no expiration).
+    pub expiration: Option<u64>,
 }
 
-/// Helper struct for serializing Order with signature injected.
+/// Helper struct for serializing V2 Order with signature injected.
 /// This avoids the overhead of `serde_json::to_value()` followed by mutation.
 #[serde_as]
 #[derive(Serialize)]
@@ -492,7 +497,6 @@ struct OrderWithSignature<'order> {
     salt: &'order U256,
     maker: &'order alloy::primitives::Address,
     signer: &'order alloy::primitives::Address,
-    taker: &'order alloy::primitives::Address,
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "tokenId")]
     token_id: &'order U256,
@@ -502,17 +506,17 @@ struct OrderWithSignature<'order> {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "takerAmount")]
     taker_amount: &'order U256,
-    #[serde_as(as = "DisplayFromStr")]
-    expiration: &'order U256,
-    #[serde_as(as = "DisplayFromStr")]
-    nonce: &'order U256,
-    #[serde_as(as = "DisplayFromStr")]
-    #[serde(rename = "feeRateBps")]
-    fee_rate_bps: &'order U256,
     /// Side serialized as "BUY"/"SELL" string (CLOB API requirement)
     side: Side,
     #[serde(rename = "signatureType")]
     signature_type: u8,
+    #[serde_as(as = "DisplayFromStr")]
+    timestamp: &'order U256,
+    metadata: &'order B256,
+    builder: &'order B256,
+    /// Expiration in seconds (not signed in V2, but sent to API). Defaults to "0".
+    #[serde_as(as = "DisplayFromStr")]
+    expiration: u64,
     /// Signature injected into the order object
     signature: String,
 }
@@ -531,15 +535,15 @@ impl Serialize for SignedOrder {
             salt: &self.order.salt,
             maker: &self.order.maker,
             signer: &self.order.signer,
-            taker: &self.order.taker,
             token_id: &self.order.tokenId,
             maker_amount: &self.order.makerAmount,
             taker_amount: &self.order.takerAmount,
-            expiration: &self.order.expiration,
-            nonce: &self.order.nonce,
-            fee_rate_bps: &self.order.feeRateBps,
             side,
             signature_type: self.order.signatureType,
+            timestamp: &self.order.timestamp,
+            metadata: &self.order.metadata,
+            builder: &self.order.builder,
+            expiration: self.expiration.unwrap_or(0),
             signature: self.signature.to_string(),
         };
 
@@ -716,6 +720,7 @@ mod tests {
             order_type: OrderType::GTC,
             owner: ApiKey::nil(),
             post_only: None,
+            expiration: None,
         };
 
         let value = to_value(&signed_order).expect("serialize SignedOrder");
@@ -724,5 +729,54 @@ mod tests {
             .expect("SignedOrder should serialize to an object");
 
         assert!(!object.contains_key("postOnly"));
+    }
+
+    #[test]
+    fn signed_order_v2_serialization_includes_new_fields() {
+        use alloy::primitives::b256;
+
+        let metadata = b256!("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd");
+        let builder = b256!("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+
+        let order = Order {
+            salt: U256::from(12345u64),
+            maker: alloy::primitives::Address::ZERO,
+            signer: alloy::primitives::Address::ZERO,
+            tokenId: U256::from(123u64),
+            makerAmount: U256::from(10520000u64),
+            takerAmount: U256::from(21040000u64),
+            side: 0,
+            signatureType: 0,
+            timestamp: U256::from(1713398400000u64),
+            metadata,
+            builder,
+        };
+
+        let signed_order = SignedOrder {
+            order,
+            signature: Signature::new(U256::ZERO, U256::ZERO, false),
+            order_type: OrderType::GTC,
+            owner: ApiKey::nil(),
+            post_only: None,
+            expiration: Some(1234567),
+        };
+
+        let value = to_value(&signed_order).expect("serialize SignedOrder");
+        let order_obj = value["order"].as_object().expect("order should be object");
+
+        assert_eq!(order_obj["timestamp"], "1713398400000");
+        assert_eq!(
+            order_obj["metadata"],
+            "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        );
+        assert_eq!(
+            order_obj["builder"],
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        );
+        assert_eq!(order_obj["expiration"], "1234567");
+        // V2 orders should NOT have these fields
+        assert!(!order_obj.contains_key("taker"));
+        assert!(!order_obj.contains_key("nonce"));
+        assert!(!order_obj.contains_key("feeRateBps"));
     }
 }
