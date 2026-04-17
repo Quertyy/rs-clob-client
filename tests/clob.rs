@@ -2991,11 +2991,7 @@ mod authenticated {
     }
 }
 
-mod builder_authenticated {
-    use alloy::signers::Signer as _;
-    use alloy::signers::local::LocalSigner;
-    use httpmock::Method::DELETE;
-    use polymarket_client_sdk::auth::builder::Config as BuilderConfig;
+mod builder_endpoints {
     use polymarket_client_sdk::clob::types::request::TradesRequest;
     use polymarket_client_sdk::clob::types::response::{
         BuilderApiKeyResponse, BuilderTradeResponse, Page,
@@ -3005,77 +3001,25 @@ mod builder_authenticated {
 
     use super::*;
     use crate::common::{
-        API_KEY, BUILDER_API_KEY, BUILDER_PASSPHRASE, PASSPHRASE, POLY_BUILDER_API_KEY,
-        POLY_BUILDER_PASSPHRASE, POLY_BUILDER_SIGNATURE, POLY_BUILDER_TIMESTAMP, POLY_NONCE,
-        POLY_SIGNATURE, POLY_TIMESTAMP, SECRET, SIGNATURE, TIMESTAMP,
+        API_KEY, PASSPHRASE, POLY_ADDRESS, POLY_API_KEY, POLY_PASSPHRASE, create_authenticated,
+        token_1,
     };
 
     #[tokio::test]
     async fn builder_api_keys_should_succeed() -> anyhow::Result<()> {
         let server = MockServer::start();
-
-        let signer = LocalSigner::from_str(PRIVATE_KEY)?.with_chain_id(Some(POLYGON));
-
-        let mock = server.mock(|when, then| {
-            when.method(httpmock::Method::GET)
-                .path("/auth/derive-api-key")
-                .header(POLY_ADDRESS, signer.address().to_string().to_lowercase())
-                .header(POLY_NONCE, "0")
-                .header(POLY_SIGNATURE, SIGNATURE)
-                .header(POLY_TIMESTAMP, TIMESTAMP);
-            then.status(StatusCode::OK).json_body(json!({
-                "apiKey": API_KEY,
-                "passphrase": PASSPHRASE,
-                "secret": SECRET
-            }));
-        });
-        let mock2 = server.mock(|when, then| {
-            when.method(httpmock::Method::GET).path("/time");
-            then.status(StatusCode::OK)
-                .json_body(TIMESTAMP.parse::<i64>().unwrap());
-        });
-
-        let config = Config::builder().use_server_time(true).build();
-        let builder_config = BuilderConfig::remote(&server.base_url(), Some("token".to_owned()))?;
-        let client = Client::new(&server.base_url(), config)?
-            .authentication_builder(&signer)
-            .authenticate()
-            .await?;
-
-        let client = client.promote_to_builder(builder_config).await?;
-
-        let mock3 = server.mock(|when, then| {
-            when.method(httpmock::Method::POST)
-                .path("/")
-                .header("authorization", "Bearer token");
-
-            then.status(StatusCode::OK).json_body(json!({
-                POLY_BUILDER_API_KEY: BUILDER_API_KEY,
-                POLY_BUILDER_PASSPHRASE: BUILDER_PASSPHRASE,
-                POLY_BUILDER_SIGNATURE: "signature",
-                POLY_BUILDER_TIMESTAMP: "1",
-            }));
-        });
+        let client = create_authenticated(&server).await?;
 
         let time = Utc::now();
-        let mock4 = server.mock(|when, then| {
+        let mock = server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/auth/builder-api-key")
                 .header(POLY_ADDRESS, client.address().to_string().to_lowercase())
                 .header(POLY_API_KEY, API_KEY)
-                .header(POLY_PASSPHRASE, PASSPHRASE)
-                .header(POLY_BUILDER_API_KEY, BUILDER_API_KEY)
-                .header(POLY_BUILDER_PASSPHRASE, BUILDER_PASSPHRASE)
-                .header(POLY_BUILDER_SIGNATURE, "signature")
-                .header(POLY_BUILDER_TIMESTAMP, "1");
+                .header(POLY_PASSPHRASE, PASSPHRASE);
 
             then.status(StatusCode::OK).json_body(json!(
-                [
-                    {
-                        "key": Uuid::nil(),
-                        "createdAt": time
-                    }
-                ]
+                [{ "key": Uuid::nil(), "createdAt": time }]
             ));
         });
 
@@ -3090,9 +3034,6 @@ mod builder_authenticated {
 
         assert_eq!(response, expected);
         mock.assert();
-        mock2.assert_calls(3);
-        mock3.assert();
-        mock4.assert();
 
         Ok(())
     }
@@ -3100,69 +3041,19 @@ mod builder_authenticated {
     #[tokio::test]
     async fn revoke_builder_api_key_should_succeed() -> anyhow::Result<()> {
         let server = MockServer::start();
-
-        let signer = LocalSigner::from_str(PRIVATE_KEY)?.with_chain_id(Some(POLYGON));
+        let client = create_authenticated(&server).await?;
 
         let mock = server.mock(|when, then| {
-            when.method(httpmock::Method::GET)
-                .path("/auth/derive-api-key")
-                .header(POLY_ADDRESS, signer.address().to_string().to_lowercase())
-                .header(POLY_NONCE, "0")
-                .header(POLY_SIGNATURE, SIGNATURE)
-                .header(POLY_TIMESTAMP, TIMESTAMP);
-            then.status(StatusCode::OK).json_body(json!({
-                "apiKey": API_KEY,
-                "passphrase": PASSPHRASE,
-                "secret": SECRET
-            }));
-        });
-        let mock2 = server.mock(|when, then| {
-            when.method(httpmock::Method::GET).path("/time");
-            then.status(StatusCode::OK)
-                .json_body(TIMESTAMP.parse::<i64>().unwrap());
-        });
-
-        let config = Config::builder().use_server_time(true).build();
-        let builder_config = BuilderConfig::remote(&server.base_url(), Some("token".to_owned()))?;
-        let client = Client::new(&server.base_url(), config)?
-            .authentication_builder(&signer)
-            .authenticate()
-            .await?;
-
-        let client = client.promote_to_builder(builder_config).await?;
-
-        let mock3 = server.mock(|when, then| {
-            when.method(httpmock::Method::POST)
-                .path("/")
-                .header("authorization", "Bearer token");
-
-            then.status(StatusCode::OK).json_body(json!({
-                POLY_BUILDER_API_KEY: BUILDER_API_KEY,
-                POLY_BUILDER_PASSPHRASE: BUILDER_PASSPHRASE,
-                POLY_BUILDER_SIGNATURE: "signature",
-                POLY_BUILDER_TIMESTAMP: "1",
-            }));
-        });
-
-        let mock4 = server.mock(|when, then| {
-            when.method(DELETE)
+            when.method(httpmock::Method::DELETE)
                 .path("/auth/builder-api-key")
                 .header(POLY_ADDRESS, client.address().to_string().to_lowercase())
                 .header(POLY_API_KEY, API_KEY)
-                .header(POLY_PASSPHRASE, PASSPHRASE)
-                .header(POLY_BUILDER_API_KEY, BUILDER_API_KEY)
-                .header(POLY_BUILDER_PASSPHRASE, BUILDER_PASSPHRASE)
-                .header(POLY_BUILDER_SIGNATURE, "signature")
-                .header(POLY_BUILDER_TIMESTAMP, "1");
+                .header(POLY_PASSPHRASE, PASSPHRASE);
             then.status(StatusCode::OK).json_body(json!(null));
         });
 
         client.revoke_builder_api_key().await?;
-
         mock.assert();
-        mock2.assert_calls(3);
-        mock3.assert();
-        mock4.assert();
 
         Ok(())
     }
@@ -3170,60 +3061,14 @@ mod builder_authenticated {
     #[tokio::test]
     async fn builder_trades_should_succeed() -> anyhow::Result<()> {
         let server = MockServer::start();
-
-        let signer = LocalSigner::from_str(PRIVATE_KEY)?.with_chain_id(Some(POLYGON));
+        let client = create_authenticated(&server).await?;
 
         let mock = server.mock(|when, then| {
-            when.method(httpmock::Method::GET)
-                .path("/auth/derive-api-key")
-                .header(POLY_ADDRESS, signer.address().to_string().to_lowercase())
-                .header(POLY_NONCE, "0")
-                .header(POLY_SIGNATURE, SIGNATURE)
-                .header(POLY_TIMESTAMP, TIMESTAMP);
-            then.status(StatusCode::OK).json_body(json!({
-                "apiKey": API_KEY,
-                "passphrase": PASSPHRASE,
-                "secret": SECRET
-            }));
-        });
-        let mock2 = server.mock(|when, then| {
-            when.method(httpmock::Method::GET).path("/time");
-            then.status(StatusCode::OK)
-                .json_body(TIMESTAMP.parse::<i64>().unwrap());
-        });
-
-        let config = Config::builder().use_server_time(true).build();
-        let builder_config = BuilderConfig::remote(&server.base_url(), Some("token".to_owned()))?;
-        let client = Client::new(&server.base_url(), config)?
-            .authentication_builder(&signer)
-            .authenticate()
-            .await?;
-
-        let client = client.promote_to_builder(builder_config).await?;
-
-        let mock3 = server.mock(|when, then| {
-            when.method(httpmock::Method::POST)
-                .path("/")
-                .header("authorization", "Bearer token");
-
-            then.status(StatusCode::OK).json_body(json!({
-                POLY_BUILDER_API_KEY: BUILDER_API_KEY,
-                POLY_BUILDER_PASSPHRASE: BUILDER_PASSPHRASE,
-                POLY_BUILDER_SIGNATURE: "signature",
-                POLY_BUILDER_TIMESTAMP: "1",
-            }));
-        });
-
-        let mock4 = server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/builder/trades")
                 .header(POLY_ADDRESS, client.address().to_string().to_lowercase())
                 .header(POLY_API_KEY, API_KEY)
                 .header(POLY_PASSPHRASE, PASSPHRASE)
-                .header(POLY_BUILDER_API_KEY, BUILDER_API_KEY)
-                .header(POLY_BUILDER_PASSPHRASE, BUILDER_PASSPHRASE)
-                .header(POLY_BUILDER_SIGNATURE, "signature")
-                .header(POLY_BUILDER_TIMESTAMP, "1")
                 .query_param("id", "1")
                 .query_param("market", "0x000000000000000000000000000000000000000000000000000000006d61726b");
 
@@ -3309,9 +3154,6 @@ mod builder_authenticated {
 
         assert_eq!(response, expected);
         mock.assert();
-        mock2.assert_calls(3);
-        mock3.assert();
-        mock4.assert();
 
         Ok(())
     }

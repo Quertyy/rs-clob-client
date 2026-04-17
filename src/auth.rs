@@ -111,17 +111,17 @@ pub mod state {
     }
 }
 
-/// Asynchronous authentication enricher
+/// Asynchronous authentication enricher.
 ///
-/// This trait is used to apply extra headers to authenticated requests. For example, in the case
-/// of [`builder::Builder`] authentication, Builder headers are added in addition to the [`Normal`]
-/// L2 headers.
+/// In V2, only [`Normal`] (L2) authentication is used. Builder identification
+/// is handled via the `builderCode` field on orders, not via separate auth headers.
 #[async_trait]
 pub trait Kind: sealed::Sealed + Clone + Send + Sync + 'static {
     async fn extra_headers(&self, request: &Request, timestamp: Timestamp) -> Result<HeaderMap>;
 }
 
-/// Non-special, generic authentication. Sometimes referred to as L2 authentication.
+/// Standard L2 authentication. All authenticated requests (including builder endpoints)
+/// use this kind in V2.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub struct Normal;
@@ -134,15 +134,6 @@ impl Kind for Normal {
 }
 
 impl sealed::Sealed for Normal {}
-
-#[async_trait]
-impl Kind for builder::Builder {
-    async fn extra_headers(&self, request: &Request, timestamp: Timestamp) -> Result<HeaderMap> {
-        self.create_headers(request, timestamp).await
-    }
-}
-
-impl sealed::Sealed for builder::Builder {}
 
 mod sealed {
     pub trait Sealed {}
@@ -265,135 +256,6 @@ pub(crate) mod l2 {
 }
 
 /// Specific structs and methods used in configuring and authenticating the Builder flow
-pub mod builder {
-    use reqwest::header::HeaderMap;
-    use reqwest::{Client, Request};
-    use secrecy::ExposeSecret as _;
-    use serde::{Deserialize, Serialize};
-    use serde_json::json;
-    /// URL type for remote builder host configuration.
-    pub use url::Url;
-
-    use crate::auth::{Credentials, body_to_string, hmac, to_message};
-    use crate::{Result, Timestamp};
-
-    pub(crate) const POLY_BUILDER_API_KEY: &str = "POLY_BUILDER_API_KEY";
-    pub(crate) const POLY_BUILDER_PASSPHRASE: &str = "POLY_BUILDER_PASSPHRASE";
-    pub(crate) const POLY_BUILDER_SIGNATURE: &str = "POLY_BUILDER_SIGNATURE";
-    pub(crate) const POLY_BUILDER_TIMESTAMP: &str = "POLY_BUILDER_TIMESTAMP";
-
-    #[derive(Clone, Debug, Deserialize, Serialize)]
-    #[serde(rename_all = "UPPERCASE")]
-    #[expect(
-        clippy::struct_field_names,
-        reason = "Have to prefix `poly_builder` for serde"
-    )]
-    struct HeaderPayload {
-        poly_builder_api_key: String,
-        poly_builder_timestamp: String,
-        poly_builder_passphrase: String,
-        poly_builder_signature: String,
-    }
-
-    /// Configuration used to authenticate as a [Builder](https://docs.polymarket.com/developers/builders/builder-intro). Can either be [`Config::local`]
-    /// or [`Config::remote`]. Local uses locally accessible Builder credentials to generate builder headers. Remote obtains them from a signing server
-    #[non_exhaustive]
-    #[derive(Clone, Debug)]
-    pub enum Config {
-        Local(Credentials),
-        Remote { host: Url, token: Option<String> },
-    }
-
-    impl Config {
-        #[must_use]
-        pub fn local(credentials: Credentials) -> Self {
-            Config::Local(credentials)
-        }
-
-        pub fn remote(host: &str, token: Option<String>) -> Result<Self> {
-            let host = Url::parse(host)?;
-            Ok(Config::Remote { host, token })
-        }
-    }
-
-    /// Used to generate the Builder headers
-    #[non_exhaustive]
-    #[derive(Clone, Debug)]
-    pub struct Builder {
-        pub(crate) config: Config,
-        pub(crate) client: Client,
-    }
-
-    impl Builder {
-        pub(crate) async fn create_headers(
-            &self,
-            request: &Request,
-            timestamp: Timestamp,
-        ) -> Result<HeaderMap> {
-            match &self.config {
-                Config::Local(credentials) => {
-                    let signature = hmac(&credentials.secret, &to_message(request, timestamp))?;
-
-                    let mut map = HeaderMap::new();
-
-                    map.insert(POLY_BUILDER_API_KEY, credentials.key.to_string().parse()?);
-                    map.insert(
-                        POLY_BUILDER_PASSPHRASE,
-                        credentials.passphrase.expose_secret().parse()?,
-                    );
-                    map.insert(POLY_BUILDER_SIGNATURE, signature.parse()?);
-                    map.insert(POLY_BUILDER_TIMESTAMP, timestamp.to_string().parse()?);
-
-                    Ok(map)
-                }
-                Config::Remote { host, token } => {
-                    let payload = json!({
-                        "method": request.method().as_str(),
-                        "path": request.url().path(),
-                        "body": &request.body().and_then(body_to_string).unwrap_or_default(),
-                        "timestamp": timestamp,
-                    });
-
-                    let mut headers = HeaderMap::new();
-                    if let Some(token) = token {
-                        headers.insert("Authorization", format!("Bearer {token}").parse()?);
-                    }
-
-                    let response = self
-                        .client
-                        .post(host.to_string())
-                        .headers(headers)
-                        .json(&payload)
-                        .send()
-                        .await?;
-
-                    let remote_headers: HeaderPayload = response.error_for_status()?.json().await?;
-
-                    let mut map = HeaderMap::new();
-
-                    map.insert(
-                        POLY_BUILDER_SIGNATURE,
-                        remote_headers.poly_builder_signature.parse()?,
-                    );
-                    map.insert(
-                        POLY_BUILDER_TIMESTAMP,
-                        remote_headers.poly_builder_timestamp.parse()?,
-                    );
-                    map.insert(
-                        POLY_BUILDER_API_KEY,
-                        remote_headers.poly_builder_api_key.parse()?,
-                    );
-                    map.insert(
-                        POLY_BUILDER_PASSPHRASE,
-                        remote_headers.poly_builder_passphrase.parse()?,
-                    );
-
-                    Ok(map)
-                }
-            }
-        }
-    }
-}
 
 #[must_use]
 fn to_message(request: &Request, timestamp: Timestamp) -> String {
@@ -432,7 +294,6 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::auth::builder::Config;
     #[cfg(feature = "clob")]
     use crate::auth::state::Authenticated;
     #[cfg(feature = "clob")]
@@ -505,39 +366,6 @@ mod tests {
             "eHaylCwqRSOa2LFD77Nt_SaTpbsxzN8eTEI3LryhEj4="
         );
         assert_eq!(headers[l2::POLY_TIMESTAMP], "1");
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn builder_headers_should_succeed() -> Result<()> {
-        let credentials = Credentials {
-            key: Uuid::nil(),
-            passphrase: SecretString::from(
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-            ),
-            secret: SecretString::from("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_owned()),
-        };
-        let config = Config::local(credentials);
-        let request = Request::new(Method::GET, Url::parse("http://localhost/")?);
-        let timestamp = 1;
-
-        let builder = builder::Builder {
-            config,
-            client: Client::default(),
-        };
-
-        let headers = builder.create_headers(&request, timestamp).await?;
-
-        assert_eq!(
-            headers[builder::POLY_BUILDER_API_KEY],
-            Uuid::nil().to_string()
-        );
-        assert_eq!(
-            headers[builder::POLY_BUILDER_PASSPHRASE],
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        );
-        assert_eq!(headers[builder::POLY_BUILDER_TIMESTAMP], "1");
 
         Ok(())
     }

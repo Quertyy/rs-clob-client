@@ -109,11 +109,6 @@ path = "examples/clob/aws_authenticated.rs"
 required-features = ["clob"]
 
 [[example]]
-name = "builder_authenticated"
-path = "examples/clob/builder_authenticated.rs"
-required-features = ["clob"]
-
-[[example]]
 name = "heartbeats"
 path = "examples/clob/heartbeats.rs"
 required-features = ["clob", "heartbeats", "tracing"]

@@ -13,7 +13,7 @@
 //!
 //! - **Unauthenticated**: Market data, pricing, orderbooks, health checks
 //! - **Authenticated**: Order placement/cancellation, balances, API keys, rewards
-//! - **Builder Authentication**: Special endpoints for market makers and builders
+//! - **Builder**: Endpoints for market makers identified by `builderCode` on orders
 //!
 //! ## Public Endpoints (No Authentication Required)
 //!

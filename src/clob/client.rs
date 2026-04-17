@@ -25,7 +25,6 @@ use uuid::Uuid;
 #[cfg(feature = "heartbeats")]
 use {tokio::sync::oneshot::Receiver, tokio::time, tokio_util::sync::CancellationToken};
 
-use crate::auth::builder::{Builder, Config as BuilderConfig};
 use crate::auth::state::{Authenticated, State, Unauthenticated};
 use crate::auth::{Credentials, Kind, Normal};
 use crate::clob::order_builder::{
@@ -2275,80 +2274,12 @@ impl<K: Kind> Client<Authenticated<K>> {
             _kind: PhantomData,
         }
     }
-}
 
-impl Client<Authenticated<Normal>> {
-    /// Convert this [`Client<Authenticated<Normal>>`] to [`Client<Authenticated<Builder>>`] using
-    /// the provided `config`.
+    /// Lists API keys registered for the builder.
     ///
-    /// Note: If `heartbeats` feature flag is enabled, then this method _will_ cancel all
-    /// outstanding orders since it will disable the background heartbeats task and then
-    /// re-enable it.
-    #[cfg_attr(
-        not(feature = "heartbeats"),
-        expect(
-            clippy::unused_async,
-            unused_mut,
-            reason = "Nothing to await or modify when heartbeats are disabled"
-        )
-    )]
-    pub async fn promote_to_builder(
-        mut self,
-        config: BuilderConfig,
-    ) -> Result<Client<Authenticated<Builder>>> {
-        #[cfg(feature = "heartbeats")]
-        self.heartbeat_token.cancel_and_wait().await?;
-
-        let inner = Arc::into_inner(self.inner).ok_or(Synchronization)?;
-
-        let state = Authenticated {
-            address: inner.state.address,
-            credentials: inner.state.credentials,
-            kind: Builder {
-                config,
-                client: inner.client.clone(),
-            },
-        };
-
-        let new_inner = ClientInner {
-            config: inner.config,
-            state,
-            host: inner.host,
-            geoblock_host: inner.geoblock_host,
-            client: inner.client,
-            tick_sizes: inner.tick_sizes,
-            neg_risk: inner.neg_risk,
-            fee_infos: inner.fee_infos,
-            token_condition_map: inner.token_condition_map,
-            cached_version: AtomicU32::new(inner.cached_version.load(Ordering::Relaxed)),
-            funder: inner.funder,
-            signature_type: inner.signature_type,
-            salt_generator: inner.salt_generator,
-            default_metadata: inner.default_metadata,
-            default_builder_code: inner.default_builder_code,
-        };
-
-        #[cfg_attr(
-            not(feature = "heartbeats"),
-            expect(
-                unused_mut,
-                reason = "Modifier only needed when heartbeats feature is enabled"
-            )
-        )]
-        let mut client = Client {
-            inner: Arc::new(new_inner),
-            #[cfg(feature = "heartbeats")]
-            heartbeat_token: DroppingCancellationToken(None),
-        };
-
-        #[cfg(feature = "heartbeats")]
-        Client::<Authenticated<Builder>>::start_heartbeats(&mut client)?;
-
-        Ok(client)
-    }
-}
-
-impl Client<Authenticated<Builder>> {
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
     pub async fn builder_api_keys(&self) -> Result<Vec<BuilderApiKeyResponse>> {
         let request = self
             .client()
@@ -2359,6 +2290,11 @@ impl Client<Authenticated<Builder>> {
         crate::request(&self.inner.client, request, Some(headers)).await
     }
 
+    /// Revokes the current builder API key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
     pub async fn revoke_builder_api_key(&self) -> Result<()> {
         let mut request = self
             .client()
@@ -2371,13 +2307,16 @@ impl Client<Authenticated<Builder>> {
 
         *request.headers_mut() = headers;
 
-        // We have to send the request separately from `self.request` because this endpoint does
-        // not return anything in the response body. Otherwise, we would get an EOF error from reqwest
         self.client().execute(request).await?;
 
         Ok(())
     }
 
+    /// Fetches builder trades with optional pagination.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
     pub async fn builder_trades(
         &self,
         request: &TradesRequest,
@@ -2397,7 +2336,6 @@ impl Client<Authenticated<Builder>> {
         crate::request(&self.inner.client, request, Some(headers)).await
     }
 }
-
 
 #[cfg(test)]
 mod tests {
