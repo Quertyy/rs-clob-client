@@ -106,10 +106,10 @@ impl SubscriptionManager {
 
     /// Start the reconnection handler that re-subscribes on connection recovery.
     pub fn start_reconnection_handler(self: &Arc<Self>) {
-        let this = Arc::clone(self);
+        let weak = Arc::downgrade(self);
+        let mut state_rx = self.connection.state_receiver();
 
         tokio::spawn(async move {
-            let mut state_rx = this.connection.state_receiver();
             let mut was_connected = state_rx.borrow().is_connected();
 
             loop {
@@ -127,7 +127,11 @@ impl SubscriptionManager {
                             // Reconnect to subscriptions
                             #[cfg(feature = "tracing")]
                             tracing::debug!("WebSocket reconnected, re-establishing subscriptions");
-                            this.resubscribe_all();
+                            if let Some(this) = weak.upgrade() {
+                                this.resubscribe_all();
+                            } else {
+                                break;
+                            }
                         }
                         was_connected = true;
                     }
@@ -561,5 +565,46 @@ impl SubscriptionManager {
         });
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod reconnect_handler_tests {
+    use std::sync::{Arc, Weak};
+    use std::time::Duration;
+
+    use super::{InterestTracker, SubscriptionManager};
+    use crate::ws::ConnectionManager;
+    use crate::ws::config::Config;
+
+    const UNROUTABLE_ENDPOINT: &str = "ws://127.0.0.1:1";
+
+    #[tokio::test]
+    async fn reconnect_handler_does_not_keep_subscription_manager_alive() {
+        let interest = Arc::new(InterestTracker::new());
+        let connection = ConnectionManager::new(
+            UNROUTABLE_ENDPOINT.to_owned(),
+            Config::default(),
+            Arc::clone(&interest),
+        )
+        .expect("ConnectionManager::new");
+
+        let subscriptions = Arc::new(SubscriptionManager::new(connection, interest));
+        subscriptions.start_reconnection_handler();
+
+        let weak: Weak<SubscriptionManager> = Arc::downgrade(&subscriptions);
+        drop(subscriptions);
+
+        let start = std::time::Instant::now();
+        while weak.strong_count() != 0 && start.elapsed() < Duration::from_secs(2) {
+            tokio::task::yield_now().await;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        assert!(
+            weak.upgrade().is_none(),
+            "SubscriptionManager leaked after drop: strong_count={}",
+            weak.strong_count(),
+        );
     }
 }
