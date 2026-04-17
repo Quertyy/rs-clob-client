@@ -313,7 +313,7 @@ mod tests {
         let cfg = contract_config(AMOY, false).expect("missing config");
         assert_eq!(
             cfg.exchange,
-            address!("0xdFE02Eb6733538f8Ea35D585af8DE5958AD99E40")
+            address!("0xE111180000d2663C0091e4f400237545B87B996B")
         );
     }
 
@@ -322,7 +322,7 @@ mod tests {
         let cfg = contract_config(AMOY, true).expect("missing config");
         assert_eq!(
             cfg.exchange,
-            address!("0xd91e80cf2e7be2e162c6513ced06f1dd0da35296")
+            address!("0xe2222d279d744050d28e00520010520000310F59")
         );
     }
 
