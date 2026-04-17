@@ -125,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
             (Err(e), _) => {
-                debug!(contract = name, error = %e, "failed to check USDC allowance");
+                debug!(contract = name, error = %e, "failed to check pUSD allowance");
                 all_approved = false;
             }
             (_, Err(e)) => {
@@ -153,9 +153,9 @@ fn format_allowance(allowance: U256) -> String {
     } else if allowance == U256::ZERO {
         "0".to_owned()
     } else {
-        // USDC has 6 decimals
+        // pUSD has 6 decimals
         let pusd_decimals = U256::from(1_000_000);
         let whole = allowance / pusd_decimals;
-        format!("{whole} USDC")
+        format!("{whole} pUSD")
     }
 }

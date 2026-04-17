@@ -145,16 +145,16 @@ async fn main() -> Result<()> {
 
         info!("Using wallet: {wallet_address:?}");
 
-        // Example: Split 1 USDC into YES and NO tokens (using convenience method)
+        // Example: Split 1 pUSD into YES and NO tokens (using convenience method)
         info!("--- Splitting Position (Binary Market) ---");
-        info!("This will split 1 USDC into 1 YES and 1 NO token");
-        info!("Note: You must approve the CTF contract to spend your USDC first!");
+        info!("This will split 1 pUSD into 1 YES and 1 NO token");
+        info!("Note: You must approve the CTF contract to spend your pUSD first!");
 
         // Using the convenience method for binary markets
         let split_req = SplitPositionRequest::for_binary_market(
             pusd,
             condition_resp.condition_id,
-            U256::from(1_000_000), // 1 USDC (6 decimals)
+            U256::from(1_000_000), // 1 pUSD (6 decimals)
         );
 
         match client.split_position(&split_req).await {
@@ -165,13 +165,13 @@ async fn main() -> Result<()> {
             }
             Err(e) => {
                 error!("✗ Split failed: {e}");
-                error!("  Make sure you have approved the CTF contract and have sufficient USDC");
+                error!("  Make sure you have approved the CTF contract and have sufficient pUSD");
             }
         }
 
-        // Example: Merge YES and NO tokens back into USDC (using convenience method)
+        // Example: Merge YES and NO tokens back into pUSD (using convenience method)
         info!("--- Merging Positions (Binary Market) ---");
-        info!("This will merge 1 YES and 1 NO token back into 1 USDC");
+        info!("This will merge 1 YES and 1 NO token back into 1 pUSD");
 
         // Using the convenience method for binary markets
         let merge_req = MergePositionsRequest::for_binary_market(
