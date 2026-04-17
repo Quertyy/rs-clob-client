@@ -9,8 +9,8 @@ use bon::Builder;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{
-    DefaultOnError, DefaultOnNull, NoneAsEmptyString, TimestampMilliSeconds, TimestampSeconds,
-    TryFromInto, serde_as,
+    DefaultOnError, DefaultOnNull, DisplayFromStr, NoneAsEmptyString, TimestampMilliSeconds,
+    TimestampSeconds, TryFromInto, serde_as,
 };
 use sha2::{Digest as _, Sha256};
 use uuid::Uuid;
@@ -506,12 +506,14 @@ pub struct NotificationPayload {
     clippy::allow_attributes_without_reason,
     reason = "Bon will generate code that has an allow attribute for some reason on the `allowances` field"
 )]
+#[serde_as]
 #[derive(Debug, Default, Clone, Deserialize, Builder, PartialEq)]
 pub struct BalanceAllowanceResponse {
     pub balance: Decimal,
     #[serde(default)]
+    #[serde_as(as = "HashMap<_, DisplayFromStr>")]
     #[builder(default)]
-    pub allowances: HashMap<Address, String>,
+    pub allowances: HashMap<Address, U256>,
 }
 
 #[non_exhaustive]

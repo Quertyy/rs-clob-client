@@ -2250,7 +2250,7 @@ mod authenticated {
 
         let expected = BalanceAllowanceResponse::builder()
             .balance(Decimal::ZERO)
-            .allowances(HashMap::from_iter([(Address::ZERO, "1".to_owned())]))
+            .allowances(HashMap::from_iter([(Address::ZERO, U256::from(1))]))
             .build();
 
         assert_eq!(response, expected);
