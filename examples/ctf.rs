@@ -5,8 +5,8 @@
 //!
 //! This example demonstrates how to interact with the CTF contract to:
 //! - Calculate condition IDs, collection IDs, and position IDs
-//! - Split USDC collateral into outcome tokens (YES/NO)
-//! - Merge outcome tokens back into USDC
+//! - Split pUSD collateral into outcome tokens (YES/NO)
+//! - Merge outcome tokens back into pUSD
 //! - Redeem winning tokens after market resolution
 //!
 //! ## Usage
@@ -35,8 +35,7 @@ use polymarket_client_sdk::ctf::types::{
     CollectionIdRequest, ConditionIdRequest, MergePositionsRequest, PositionIdRequest,
     RedeemPositionsRequest, SplitPositionRequest,
 };
-use polymarket_client_sdk::types::address;
-use polymarket_client_sdk::{POLYGON, PRIVATE_KEY_VAR};
+use polymarket_client_sdk::{POLYGON, PRIVATE_KEY_VAR, PUSD};
 use tracing::{error, info};
 
 const RPC_URL: &str = "https://polygon-rpc.com";
@@ -104,10 +103,10 @@ async fn main() -> Result<()> {
 
     // Example: Calculate position IDs (ERC1155 token IDs)
     info!("--- Calculating Position IDs ---");
-    let usdc = address!("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
+    let pusd = PUSD;
 
     let yes_position_req = PositionIdRequest::builder()
-        .collateral_token(usdc)
+        .collateral_token(pusd)
         .collection_id(yes_collection_resp.collection_id)
         .build();
 
@@ -118,7 +117,7 @@ async fn main() -> Result<()> {
     );
 
     let no_position_req = PositionIdRequest::builder()
-        .collateral_token(usdc)
+        .collateral_token(pusd)
         .collection_id(no_collection_resp.collection_id)
         .build();
 
@@ -153,7 +152,7 @@ async fn main() -> Result<()> {
 
         // Using the convenience method for binary markets
         let split_req = SplitPositionRequest::for_binary_market(
-            usdc,
+            pusd,
             condition_resp.condition_id,
             U256::from(1_000_000), // 1 USDC (6 decimals)
         );
@@ -176,7 +175,7 @@ async fn main() -> Result<()> {
 
         // Using the convenience method for binary markets
         let merge_req = MergePositionsRequest::for_binary_market(
-            usdc,
+            pusd,
             condition_resp.condition_id,
             U256::from(1_000_000), // 1 full set
         );
@@ -199,7 +198,7 @@ async fn main() -> Result<()> {
 
         // Using the convenience method for binary markets (redeems both YES and NO tokens)
         let redeem_req =
-            RedeemPositionsRequest::for_binary_market(usdc, condition_resp.condition_id);
+            RedeemPositionsRequest::for_binary_market(pusd, condition_resp.condition_id);
 
         match client.redeem_positions(&redeem_req).await {
             Ok(redeem_resp) => {

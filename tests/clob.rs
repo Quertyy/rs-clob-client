@@ -1786,7 +1786,7 @@ mod authenticated {
                 .header(POLY_ADDRESS, client.address().to_string().to_lowercase())
                 .header(POLY_API_KEY, API_KEY)
                 .header(POLY_PASSPHRASE, PASSPHRASE)
-                .json_body(json!({ "orderId": "1" }));
+                .json_body(json!({ "orderID": "1" }));
             then.status(StatusCode::OK).json_body(json!({
                     "canceled": [],
                     "notCanceled": {
@@ -1822,11 +1822,11 @@ mod authenticated {
                 .header(POLY_ADDRESS, client.address().to_string().to_lowercase())
                 .header(POLY_API_KEY, API_KEY)
                 .header(POLY_PASSPHRASE, PASSPHRASE)
-                .json_body(json!({ "orderId": "1" }));
+                .json_body(json!({ "orderID": "1" }));
             then.status(StatusCode::OK).json_body(json!({
                     "canceled": [],
                     "not_canceled": {
-                        "1": "the ororderIDalready canceled"
+                        "1": "the order is already canceled"
                     }
                 }
             ));
@@ -1863,7 +1863,6 @@ mod authenticated {
                     "canceled": ["1"]
                 }
             ));
-            orderID
         });
 
         let response = client.cancel_orders(&["1"]).await?;
