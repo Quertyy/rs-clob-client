@@ -137,7 +137,6 @@
 //! - **`ws`**: Enables WebSocket support for real-time orderbook and trade streams
 //! - **`heartbeats`**: Enables automatic heartbeat mechanism for authenticated sessions
 //! - **`tracing`**: Enables detailed request/response tracing
-//! - **`rfq`**: Enables RFQ (Request for Quote) endpoints for institutional trading
 //!
 //! # API Base URL
 //!

@@ -19,18 +19,6 @@ use crate::types::Decimal;
 pub mod request;
 pub mod response;
 
-// Re-export RFQ types for convenient access
-#[cfg(feature = "rfq")]
-pub use request::{
-    AcceptRfqQuoteRequest, ApproveRfqOrderRequest, CancelRfqQuoteRequest, CancelRfqRequestRequest,
-    CreateRfqQuoteRequest, CreateRfqRequestRequest, RfqQuotesRequest, RfqRequestsRequest,
-};
-#[cfg(feature = "rfq")]
-pub use response::{
-    AcceptRfqQuoteResponse, ApproveRfqOrderResponse, CreateRfqQuoteResponse,
-    CreateRfqRequestResponse, RfqQuote, RfqRequest,
-};
-
 #[non_exhaustive]
 #[derive(
     Clone, Debug, Display, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize,
@@ -240,49 +228,6 @@ pub enum SignatureType {
     GnosisSafe = 2,
     /// EIP-1271 signatures for smart contract wallets/vaults
     Poly1271 = 3,
-}
-
-/// RFQ state filter for queries.
-#[cfg(feature = "rfq")]
-#[non_exhaustive]
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RfqState {
-    /// Active requests/quotes
-    #[default]
-    Active,
-    /// Inactive requests/quotes
-    Inactive,
-}
-
-/// Sort field for RFQ queries.
-#[cfg(feature = "rfq")]
-#[non_exhaustive]
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RfqSortBy {
-    /// Sort by price
-    Price,
-    /// Sort by expiry
-    Expiry,
-    /// Sort by size
-    Size,
-    /// Sort by creation time (default)
-    #[default]
-    Created,
-}
-
-/// Sort direction for RFQ queries.
-#[cfg(feature = "rfq")]
-#[non_exhaustive]
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RfqSortDir {
-    /// Ascending order (default)
-    #[default]
-    Asc,
-    /// Descending order
-    Desc,
 }
 
 #[non_exhaustive]
