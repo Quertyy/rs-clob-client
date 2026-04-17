@@ -569,7 +569,7 @@ mod unauthenticated {
         assert_eq!(response, expected);
         assert_eq!(
             expected.hash()?,
-            "03196cc4f520d81c0748b4f042f2096441d160e8ef5eac4f0378cb5bd80fd183"
+            "9e71d5176094f0d300d74850b2699dbfd7083dd3f1f3b640d0d65fa96d36d3b4"
         );
         mock.assert();
 
