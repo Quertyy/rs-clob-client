@@ -10,7 +10,7 @@ use serde_with::{DefaultOnNull, DisplayFromStr, NoneAsEmptyString, serde_as};
 use super::{ActivityType, Side};
 use crate::types::{Address, B256, Decimal, U256};
 
-/// Deserializes an optional Side, treating empty strings as None.
+/// Deserializes an optional Side, treating empty strings as None and preserving unknown values.
 fn deserialize_optional_side<'de, D>(deserializer: D) -> Result<Option<Side>, D::Error>
 where
     D: Deserializer<'de>,
@@ -22,7 +22,7 @@ where
         Some(s) => match s.to_uppercase().as_str() {
             "BUY" => Ok(Some(Side::Buy)),
             "SELL" => Ok(Some(Side::Sell)),
-            _ => Ok(None),
+            _ => Ok(Some(Side::Unknown(s))),
         },
     }
 }
@@ -513,4 +513,69 @@ pub struct TraderLeaderboardEntry {
     pub x_username: Option<String>,
     /// Whether the trader has a verified badge.
     pub verified_badge: Option<bool>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct TestSide {
+        #[serde(default, deserialize_with = "deserialize_optional_side")]
+        side: Option<Side>,
+    }
+
+    #[test]
+    fn deserialize_optional_side_buy() {
+        let json = r#"{"side": "BUY"}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, Some(Side::Buy));
+    }
+
+    #[test]
+    fn deserialize_optional_side_sell() {
+        let json = r#"{"side": "SELL"}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, Some(Side::Sell));
+    }
+
+    #[test]
+    fn deserialize_optional_side_empty_string() {
+        let json = r#"{"side": ""}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, None);
+    }
+
+    #[test]
+    fn deserialize_optional_side_null() {
+        let json = r#"{"side": null}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, None);
+    }
+
+    #[test]
+    fn deserialize_optional_side_missing() {
+        let json = r#"{}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, None);
+    }
+
+    #[test]
+    fn deserialize_optional_side_unknown_preserves_value() {
+        let json = r#"{"side": "UNKNOWN_SIDE"}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, Some(Side::Unknown("UNKNOWN_SIDE".to_string())));
+    }
+
+    #[test]
+    fn deserialize_optional_side_case_insensitive() {
+        let json = r#"{"side": "buy"}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, Some(Side::Buy));
+
+        let json = r#"{"side": "Sell"}"#;
+        let result: TestSide = serde_json::from_str(json).unwrap();
+        assert_eq!(result.side, Some(Side::Sell));
+    }
 }
