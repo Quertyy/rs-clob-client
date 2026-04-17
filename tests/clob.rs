@@ -561,6 +561,93 @@ mod unauthenticated {
     }
 
     #[tokio::test]
+    async fn market_by_token_should_succeed() -> anyhow::Result<()> {
+        let server = MockServer::start();
+        let client = Client::new(&server.base_url(), Config::default())?;
+
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path(format!("/markets-by-token/{}", token_1()));
+            then.status(StatusCode::OK)
+                .json_body(json!({ "condition_id": "0xabc123" }));
+        });
+
+        let response = client.market_by_token(&token_1().to_string()).await?;
+        assert_eq!(response.condition_id, "0xabc123");
+        mock.assert();
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn builder_fees_should_succeed() -> anyhow::Result<()> {
+        let server = MockServer::start();
+        let client = Client::new(&server.base_url(), Config::default())?;
+        let builder_code = "0x1234";
+
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path(format!("/fees/builder-fees/{builder_code}"));
+            then.status(StatusCode::OK).json_body(json!({
+                "builder_maker_fee_rate_bps": 0,
+                "builder_taker_fee_rate_bps": 100
+            }));
+        });
+
+        let response = client.builder_fees(builder_code).await?;
+        assert_eq!(response.builder_maker_fee_rate_bps, 0);
+        assert_eq!(response.builder_taker_fee_rate_bps, 100);
+        mock.assert();
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn live_activity_should_succeed() -> anyhow::Result<()> {
+        let server = MockServer::start();
+        let client = Client::new(&server.base_url(), Config::default())?;
+        let condition_id = "0xabc";
+
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path(format!("/markets/live-activity/{condition_id}"));
+            then.status(StatusCode::OK).json_body(json!([{
+                "event_type": "trade",
+                "market": {
+                    "condition_id": condition_id,
+                    "asset_id": token_1().to_string(),
+                    "question": "Will X happen?",
+                    "icon": "",
+                    "slug": "will-x-happen"
+                },
+                "user": {
+                    "address": "0x1234",
+                    "username": "trader",
+                    "profile_picture": "",
+                    "optimized_profile_picture": "",
+                    "pseudonym": "anon"
+                },
+                "side": "BUY",
+                "size": "10.0",
+                "fee_rate_bps": "5",
+                "price": "0.5",
+                "outcome": "Yes",
+                "outcome_index": 0,
+                "transaction_hash": "",
+                "timestamp": "1700000000"
+            }]));
+        });
+
+        let response = client.live_activity(condition_id).await?;
+        assert_eq!(response.len(), 1);
+        assert_eq!(response[0].event_type, "trade");
+        assert_eq!(response[0].outcome, "Yes");
+        mock.assert();
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn order_book_should_succeed() -> anyhow::Result<()> {
         let server = MockServer::start();
         let client = Client::new(&server.base_url(), Config::default())?;

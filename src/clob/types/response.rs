@@ -877,3 +877,62 @@ pub struct RfqQuote {
     /// Quoted price.
     pub price: Decimal,
 }
+
+/// Response from `/markets-by-token/{tokenId}`.
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct MarketByTokenResponse {
+    pub condition_id: String,
+}
+
+/// Builder fee rate response from `/fees/builder-fees/{builderCode}`.
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct BuilderFeeResponse {
+    pub builder_maker_fee_rate_bps: u32,
+    pub builder_taker_fee_rate_bps: u32,
+}
+
+/// A live activity event for a market, from `/markets/live-activity/{conditionId}`.
+#[non_exhaustive]
+#[serde_as]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+pub struct MarketTradeEvent {
+    pub event_type: String,
+    pub market: MarketTradeEventMarket,
+    pub user: MarketTradeEventUser,
+    pub side: Side,
+    pub size: Decimal,
+    pub fee_rate_bps: Decimal,
+    pub price: Decimal,
+    pub outcome: String,
+    pub outcome_index: u32,
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub transaction_hash: Option<B256>,
+    pub timestamp: String,
+}
+
+/// Market info embedded in a [`MarketTradeEvent`].
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+#[builder(on(String, into))]
+pub struct MarketTradeEventMarket {
+    pub condition_id: String,
+    pub asset_id: String,
+    pub question: String,
+    pub icon: String,
+    pub slug: String,
+}
+
+/// User info embedded in a [`MarketTradeEvent`].
+#[non_exhaustive]
+#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
+#[builder(on(String, into))]
+pub struct MarketTradeEventUser {
+    pub address: String,
+    pub username: String,
+    pub profile_picture: String,
+    pub optimized_profile_picture: String,
+    pub pseudonym: String,
+}

@@ -39,10 +39,10 @@ use crate::clob::types::request::{
 };
 use crate::clob::types::response::{
     ApiKeysResponse, BalanceAllowanceResponse, BanStatusResponse, BuilderApiKeyResponse,
-    BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse,
+    BuilderFeeResponse, BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse,
     FeeInfo, GeoblockResponse, HeartbeatResponse, LastTradePriceResponse,
-    LastTradesPricesResponse, MarketDetailsResponse, MarketResponse, MarketRewardResponse,
-    MidpointResponse, MidpointsResponse, NegRiskResponse,
+    LastTradesPricesResponse, MarketByTokenResponse, MarketDetailsResponse, MarketResponse,
+    MarketRewardResponse, MarketTradeEvent, MidpointResponse, MidpointsResponse, NegRiskResponse,
     NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse, OrderScoringResponse,
     OrdersScoringResponse, Page, PostOrderResponse, PriceHistoryResponse, PriceResponse,
     PricesResponse, RewardsPercentagesResponse, SimplifiedMarketResponse, SpreadResponse,
@@ -927,6 +927,57 @@ impl<S: State> Client<S> {
         self.inner.fee_infos.get(token_id).map(|r| *r)
     }
 
+    /// Resolves a token ID to its condition ID via `/markets-by-token/{tokenId}`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or the token ID is unknown.
+    pub async fn market_by_token(&self, token_id: &str) -> Result<MarketByTokenResponse> {
+        let request = self
+            .client()
+            .request(
+                Method::GET,
+                format!("{}markets-by-token/{token_id}", self.host()),
+            )
+            .build()?;
+
+        crate::request(&self.inner.client, request, None).await
+    }
+
+    /// Fetches builder fee rates from `/fees/builder-fees/{builderCode}`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or the builder code is invalid.
+    pub async fn builder_fees(&self, builder_code: &str) -> Result<BuilderFeeResponse> {
+        let request = self
+            .client()
+            .request(
+                Method::GET,
+                format!("{}fees/builder-fees/{builder_code}", self.host()),
+            )
+            .build()?;
+
+        crate::request(&self.inner.client, request, None).await
+    }
+
+    /// Fetches live trading activity for a market from `/markets/live-activity/{conditionId}`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
+    pub async fn live_activity(&self, condition_id: &str) -> Result<Vec<MarketTradeEvent>> {
+        let request = self
+            .client()
+            .request(
+                Method::GET,
+                format!("{}markets/live-activity/{condition_id}", self.host()),
+            )
+            .build()?;
+
+        crate::request(&self.inner.client, request, None).await
+    }
+
     /// Checks if the current IP address is geoblocked from accessing Polymarket.
     ///
     /// This method queries the Polymarket geoblock endpoint to determine if access
@@ -1718,6 +1769,30 @@ impl<K: Kind> Client<Authenticated<K>> {
         let request = self
             .client()
             .request(Method::GET, format!("{}data/trades{params}", self.host()))
+            .build()?;
+        let headers = self.create_headers(&request).await?;
+
+        crate::request(&self.inner.client, request, Some(headers)).await
+    }
+
+    /// Fetches V1 orders that existed before the V2 migration.
+    ///
+    /// Returns a paginated list of open orders from the V1 exchange.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
+    pub async fn pre_migration_orders(
+        &self,
+        next_cursor: Option<String>,
+    ) -> Result<Page<OpenOrderResponse>> {
+        let cursor = next_cursor.as_deref().unwrap_or("MA==");
+        let request = self
+            .client()
+            .request(
+                Method::GET,
+                format!("{}data/pre-migration-orders?next_cursor={cursor}", self.host()),
+            )
             .build()?;
         let headers = self.create_headers(&request).await?;
 
