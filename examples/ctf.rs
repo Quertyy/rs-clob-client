@@ -25,7 +25,7 @@
 use std::env;
 use std::str::FromStr as _;
 
-use alloy::primitives::{B256, U256};
+use alloy::primitives::{B256, U256, address};
 use alloy::providers::ProviderBuilder;
 use alloy::signers::Signer as _;
 use alloy::signers::local::LocalSigner;

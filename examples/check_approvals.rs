@@ -26,7 +26,7 @@
 use std::env;
 use std::fs::File;
 
-use alloy::primitives::U256;
+use alloy::primitives::{Address, U256};
 use alloy::providers::ProviderBuilder;
 use alloy::sol;
 use polymarket_client_sdk::{POLYGON, PUSD, contract_config};
