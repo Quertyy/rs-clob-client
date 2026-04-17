@@ -36,11 +36,11 @@ mod unauthenticated {
         PriceRequest, SpreadRequest,
     };
     use polymarket_client_sdk::clob::types::response::{
-        GeoblockResponse, LastTradePriceResponse, LastTradesPricesResponse,
-        MarketResponse, MidpointResponse, MidpointsResponse, NegRiskResponse,
-        OrderBookSummaryResponse, OrderSummary, Page, PriceHistoryResponse, PricePoint,
-        PriceResponse, PricesResponse, Rewards, SimplifiedMarketResponse, SpreadResponse,
-        SpreadsResponse, TickSizeResponse, Token,
+        GeoblockResponse, LastTradePriceResponse, LastTradesPricesResponse, MarketResponse,
+        MidpointResponse, MidpointsResponse, NegRiskResponse, OrderBookSummaryResponse,
+        OrderSummary, Page, PriceHistoryResponse, PricePoint, PriceResponse, PricesResponse,
+        Rewards, SimplifiedMarketResponse, SpreadResponse, SpreadsResponse, TickSizeResponse,
+        Token,
     };
     use polymarket_client_sdk::clob::types::{Interval, Side, TickSize, TimeRange};
     use polymarket_client_sdk::error::Status;
@@ -480,7 +480,6 @@ mod unauthenticated {
 
         Ok(())
     }
-
 
     #[tokio::test]
     async fn invalidate_caches_should_clear_prepopulated_values() -> anyhow::Result<()> {
@@ -1510,8 +1509,8 @@ mod authenticated {
         TotalUserEarningResponse, TradeResponse, UserEarningResponse, UserRewardsEarningResponse,
     };
     use polymarket_client_sdk::clob::types::{
-        AssetType, OrderStatusType, OrderType, Side, SignableOrder, TickSize,
-        TradeStatusType, TraderSide,
+        AssetType, OrderStatusType, OrderType, Side, SignableOrder, TickSize, TradeStatusType,
+        TraderSide,
     };
     #[cfg(feature = "heartbeats")]
     use polymarket_client_sdk::error::Synchronization;

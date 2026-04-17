@@ -45,7 +45,6 @@ mod lifecycle {
             .token_id(token_1())
             .size(Decimal::ONE_HUNDRED)
             .price(dec!(0.1))
-            
             .side(Side::Buy)
             .build()
             .await?;
@@ -94,7 +93,6 @@ mod lifecycle {
             .token_id(token_1())
             .size(Decimal::ONE_HUNDRED)
             .price(dec!(0.1))
-
             .side(Side::Buy)
             .build()
             .await?;
@@ -147,7 +145,6 @@ mod lifecycle {
             .token_id(token_1())
             .size(Decimal::ONE_HUNDRED)
             .price(dec!(0.1))
-
             .side(Side::Buy)
             .build()
             .await?;
@@ -171,7 +168,6 @@ mod lifecycle {
             .token_id(token_1())
             .size(Decimal::ONE_HUNDRED)
             .price(dec!(0.1))
-
             .side(Side::Buy)
             .build()
             .await?;
@@ -218,7 +214,6 @@ mod lifecycle {
             .token_id(token_1())
             .size(Decimal::ONE_HUNDRED)
             .price(dec!(0.1))
-
             .side(Side::Buy)
             .build()
             .await?;
@@ -238,7 +233,6 @@ mod lifecycle {
             .token_id(token_2())
             .size(Decimal::TEN)
             .price(dec!(0.2))
-
             .side(Side::Sell)
             .build()
             .await?;
@@ -289,7 +283,6 @@ mod lifecycle {
             .token_id(token_1())
             .size(Decimal::ONE_HUNDRED)
             .price(dec!(0.1))
-
             .side(Side::Buy)
             .build()
             .await?;
@@ -315,7 +308,6 @@ mod lifecycle {
             .token_id(token_2())
             .size(Decimal::TEN)
             .price(dec!(0.2))
-
             .side(Side::Sell)
             .build()
             .await?;
@@ -623,7 +615,6 @@ mod limit {
             .token_id(token_1())
             .size(dec!(21.04))
             .side(Side::Buy)
-
             .expiration(50000)
             .build()
             .await
@@ -637,7 +628,6 @@ mod limit {
             .token_id(token_1())
             .price(dec!(0.5))
             .side(Side::Buy)
-
             .expiration(50000)
             .build()
             .await
@@ -662,7 +652,6 @@ mod limit {
             .price(dec!(0.005))
             .size(dec!(21.04))
             .side(Side::Buy)
-
             .expiration(50000)
             .build()
             .await
@@ -690,7 +679,6 @@ mod limit {
             .price(dec!(-0.5))
             .size(dec!(21.04))
             .side(Side::Buy)
-
             .expiration(50000)
             .build()
             .await
@@ -705,7 +693,6 @@ mod limit {
             .price(dec!(0.5))
             .size(dec!(-21.04))
             .side(Side::Buy)
-
             .expiration(50000)
             .build()
             .await
@@ -734,7 +721,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Buy)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -769,7 +755,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Buy)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -804,7 +789,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Buy)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -839,7 +823,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Buy)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -974,7 +957,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Sell)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -1009,7 +991,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Sell)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -1044,7 +1025,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Sell)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -1079,7 +1059,6 @@ mod limit {
                 .size(dec!(21.04))
                 .side(Side::Sell)
                 .order_type(OrderType::GTD)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -1308,9 +1287,8 @@ mod v2_fields {
 
             ensure_requirements(&server, token_1(), TickSize::Tenth);
 
-            let builder_code =
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-                    .parse::<B256>()?;
+            let builder_code = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+                .parse::<B256>()?;
 
             let order = client
                 .limit_order()
@@ -2070,7 +2048,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::usdc(Decimal::ONE_HUNDRED)?)
                 .side(Side::Buy)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -2113,7 +2090,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::usdc(Decimal::ONE_HUNDRED)?)
                 .side(Side::Buy)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -2157,7 +2133,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::usdc(Decimal::ONE_HUNDRED)?)
                 .side(Side::Buy)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -2201,7 +2176,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::usdc(Decimal::ONE_HUNDRED)?)
                 .side(Side::Buy)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -3007,7 +2981,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::shares(Decimal::ONE_HUNDRED)?)
                 .side(Side::Sell)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -3050,7 +3023,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::shares(Decimal::ONE_HUNDRED)?)
                 .side(Side::Sell)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -3094,7 +3066,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::shares(Decimal::ONE_HUNDRED)?)
                 .side(Side::Sell)
-    
                 .expiration(50000)
                 .build()
                 .await?;
@@ -3138,7 +3109,6 @@ mod market {
                 .token_id(token_1())
                 .amount(Amount::shares(Decimal::ONE_HUNDRED)?)
                 .side(Side::Sell)
-    
                 .expiration(50000)
                 .build()
                 .await?;

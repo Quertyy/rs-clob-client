@@ -9,9 +9,9 @@ use serde::Serialize;
 use serde_with::{
     DisplayFromStr, StringWithSeparator, formats::CommaSeparator, serde_as, skip_serializing_none,
 };
+
 use crate::clob::types::{AssetType, Side, SignatureType, TimeRange};
-use crate::types::U256;
-use crate::types::{Address, B256};
+use crate::types::{Address, B256, U256};
 
 #[serde_as]
 #[non_exhaustive]
@@ -159,7 +159,6 @@ pub struct UserRewardsEarningRequest {
     #[builder(default)]
     pub no_competition: bool,
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -155,7 +155,10 @@ mod tests {
         );
         let fee = calc_platform_fee(adjusted, price, dec!(0.25), 2);
         let diff = (adjusted + fee - amount).abs();
-        assert!(diff < dec!(0.0000000001), "adjusted + fee should equal balance");
+        assert!(
+            diff < dec!(0.0000000001),
+            "adjusted + fee should equal balance"
+        );
     }
 
     #[test]
@@ -163,17 +166,14 @@ mod tests {
         let amount = dec!(50);
         let price = dec!(0.5);
         let builder_rate = dec!(0.01);
-        let adjusted = adjust_buy_amount_for_fees(
-            amount,
-            price,
-            Decimal::ZERO,
-            0,
-            builder_rate,
-            amount,
-        );
+        let adjusted =
+            adjust_buy_amount_for_fees(amount, price, Decimal::ZERO, 0, builder_rate, amount);
         let fee = calc_builder_fee(adjusted, builder_rate);
         let diff = (adjusted + fee - amount).abs();
-        assert!(diff < dec!(0.0000000001), "adjusted + fee should equal balance");
+        assert!(
+            diff < dec!(0.0000000001),
+            "adjusted + fee should equal balance"
+        );
     }
 
     #[test]
@@ -181,37 +181,34 @@ mod tests {
         let amount = dec!(50);
         let price = dec!(0.5);
         let builder_rate = dec!(0.01);
-        let adjusted = adjust_buy_amount_for_fees(
-            amount,
-            price,
-            dec!(0.25),
-            2,
-            builder_rate,
-            amount,
-        );
+        let adjusted =
+            adjust_buy_amount_for_fees(amount, price, dec!(0.25), 2, builder_rate, amount);
         let pf = calc_platform_fee(adjusted, price, dec!(0.25), 2);
         let bf = calc_builder_fee(adjusted, builder_rate);
         let diff = (adjusted + pf + bf - amount).abs();
-        assert!(diff < dec!(0.0000000001), "adjusted + fees should equal balance");
+        assert!(
+            diff < dec!(0.0000000001),
+            "adjusted + fees should equal balance"
+        );
     }
 
     #[test]
     fn adjusted_is_less_than_original() {
         let amount = dec!(50);
-        let adjusted = adjust_buy_amount_for_fees(
-            amount,
-            dec!(0.5),
-            dec!(0.25),
-            2,
-            Decimal::ZERO,
-            amount,
-        );
+        let adjusted =
+            adjust_buy_amount_for_fees(amount, dec!(0.5), dec!(0.25), 2, Decimal::ZERO, amount);
         assert!(adjusted < amount);
     }
 
     // --- Production fee rate tests ---
 
-    fn assert_production_fee(amount: Decimal, price: Decimal, rate: Decimal, exp: u32, expected: Decimal) {
+    fn assert_production_fee(
+        amount: Decimal,
+        price: Decimal,
+        rate: Decimal,
+        exp: u32,
+        expected: Decimal,
+    ) {
         let fee = calc_platform_fee(amount, price, rate, exp);
         assert_eq!(fee.round_dp(2), expected, "rate={rate}, price={price}");
     }
@@ -248,14 +245,7 @@ mod tests {
 
     fn assert_adjusted_plus_fee_equals_balance(rate: Decimal, exp: u32, price: Decimal) {
         let amount = dec!(100);
-        let adjusted = adjust_buy_amount_for_fees(
-            amount,
-            price,
-            rate,
-            exp,
-            Decimal::ZERO,
-            amount,
-        );
+        let adjusted = adjust_buy_amount_for_fees(amount, price, rate, exp, Decimal::ZERO, amount);
         let fee = calc_platform_fee(adjusted, price, rate, exp);
         let diff = (adjusted + fee - amount).abs();
         assert!(

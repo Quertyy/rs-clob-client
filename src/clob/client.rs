@@ -38,15 +38,15 @@ use crate::clob::types::request::{
 };
 use crate::clob::types::response::{
     ApiKeysResponse, BalanceAllowanceResponse, BanStatusResponse, BuilderApiKeyResponse,
-    BuilderFeeResponse, BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse,
-    FeeInfo, GeoblockResponse, HeartbeatResponse, LastTradePriceResponse,
-    LastTradesPricesResponse, MarketByTokenResponse, MarketDetailsResponse, MarketResponse,
-    MarketRewardResponse, MarketTradeEvent, MidpointResponse, MidpointsResponse, NegRiskResponse,
-    NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse, OrderScoringResponse,
-    OrdersScoringResponse, Page, PostOrderResponse, PriceHistoryResponse, PriceResponse,
-    PricesResponse, RewardsPercentagesResponse, SimplifiedMarketResponse, SpreadResponse,
-    SpreadsResponse, TickSizeResponse, TotalUserEarningResponse, TradeResponse, VersionResponse,
-    UserEarningResponse, UserRewardsEarningResponse,
+    BuilderFeeResponse, BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse, FeeInfo,
+    GeoblockResponse, HeartbeatResponse, LastTradePriceResponse, LastTradesPricesResponse,
+    MarketByTokenResponse, MarketDetailsResponse, MarketResponse, MarketRewardResponse,
+    MarketTradeEvent, MidpointResponse, MidpointsResponse, NegRiskResponse, NotificationResponse,
+    OpenOrderResponse, OrderBookSummaryResponse, OrderScoringResponse, OrdersScoringResponse, Page,
+    PostOrderResponse, PriceHistoryResponse, PriceResponse, PricesResponse,
+    RewardsPercentagesResponse, SimplifiedMarketResponse, SpreadResponse, SpreadsResponse,
+    TickSizeResponse, TotalUserEarningResponse, TradeResponse, UserEarningResponse,
+    UserRewardsEarningResponse, VersionResponse,
 };
 use crate::clob::types::{SignableOrder, SignatureType, SignedOrder, TickSize};
 use crate::error::{Error, Kind as ErrorKind, Synchronization};
@@ -626,8 +626,7 @@ impl<S: State> Client<S> {
             .request(Method::GET, format!("{}version", self.host()))
             .build()?;
 
-        let response =
-            crate::request::<VersionResponse>(&self.inner.client, request, None).await?;
+        let response = crate::request::<VersionResponse>(&self.inner.client, request, None).await?;
 
         self.inner
             .cached_version
@@ -877,10 +876,7 @@ impl<S: State> Client<S> {
     /// # Errors
     ///
     /// Returns an error if the request fails or the condition ID is invalid.
-    pub async fn clob_market_info(
-        &self,
-        condition_id: &str,
-    ) -> Result<MarketDetailsResponse> {
+    pub async fn clob_market_info(&self, condition_id: &str) -> Result<MarketDetailsResponse> {
         let request = self
             .client()
             .request(
@@ -1783,7 +1779,10 @@ impl<K: Kind> Client<Authenticated<K>> {
             .client()
             .request(
                 Method::GET,
-                format!("{}data/pre-migration-orders?next_cursor={cursor}", self.host()),
+                format!(
+                    "{}data/pre-migration-orders?next_cursor={cursor}",
+                    self.host()
+                ),
             )
             .build()?;
         let headers = self.create_headers(&request).await?;
