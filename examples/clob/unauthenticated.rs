@@ -250,13 +250,17 @@ async fn main() -> anyhow::Result<()> {
             Err(e) => error!(endpoint = "neg_risk", token_id = %token_id, error = %e),
         }
 
-        match client.fee_rate_bps(token_id).await {
-            Ok(fee_rate) => info!(
-                endpoint = "fee_rate_bps",
-                token_id = %token_id,
-                base_fee = fee_rate.base_fee
-            ),
-            Err(e) => error!(endpoint = "fee_rate_bps", token_id = %token_id, error = %e),
+        if let Some(cid) = &condition_id {
+            match client.clob_market_info(&cid.to_string()).await {
+                Ok(details) => info!(
+                    endpoint = "clob_market_info",
+                    condition_id = %cid,
+                    tick_size = %details.minimum_tick_size,
+                    neg_risk = details.neg_risk,
+                    has_fee_details = details.fee_details.is_some()
+                ),
+                Err(e) => error!(endpoint = "clob_market_info", condition_id = %cid, error = %e),
+            }
         }
 
         let order_book_request = OrderBookSummaryRequest::builder()

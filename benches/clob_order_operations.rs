@@ -38,9 +38,8 @@ async fn setup_client() -> (Client<Authenticated<Normal>>, PrivateKeySigner) {
         .await
         .expect("authentication succeeds");
 
-    // Pre-cache tick size and fee rate to avoid HTTP requests during benchmarking
+    // Pre-cache tick size and neg risk to avoid HTTP requests during benchmarking
     client.set_tick_size(token_id, TickSize::Hundredth);
-    client.set_fee_rate_bps(token_id, 0);
     client.set_neg_risk(token_id, false);
 
     (client, signer)

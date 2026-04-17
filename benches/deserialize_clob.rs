@@ -6,9 +6,10 @@
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use polymarket_client_sdk::clob::types::response::{
     ApiKeysResponse, BalanceAllowanceResponse, BanStatusResponse, CancelOrdersResponse,
-    FeeRateResponse, LastTradePriceResponse, MarketResponse, MidpointResponse, NegRiskResponse,
-    NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse, PostOrderResponse,
-    PriceHistoryResponse, PriceResponse, SpreadResponse, TickSizeResponse, TradeResponse,
+    LastTradePriceResponse, MarketDetailsResponse, MarketResponse, MidpointResponse,
+    NegRiskResponse, NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse,
+    PostOrderResponse, PriceHistoryResponse, PriceResponse, SpreadResponse, TickSizeResponse,
+    TradeResponse,
 };
 
 fn bench_orderbook(c: &mut Criterion) {
@@ -286,11 +287,21 @@ fn bench_pricing(c: &mut Criterion) {
         });
     });
 
-    let fee_rate = r#"{"base_fee": 25}"#;
-    group.bench_function("FeeRateResponse", |b| {
+    let market_details = r#"{
+        "c": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "t": [
+            {"t": "123456789", "o": "Yes"},
+            {"t": "987654321", "o": "No"}
+        ],
+        "mts": 0.01,
+        "nr": false,
+        "fd": {"r": 0.04, "e": 1, "to": true}
+    }"#;
+    group.bench_function("MarketDetailsResponse", |b| {
         b.iter(|| {
-            let _: FeeRateResponse = serde_json::from_str(std::hint::black_box(fee_rate))
-                .expect("Deserialization should succeed");
+            let _: MarketDetailsResponse =
+                serde_json::from_str(std::hint::black_box(market_details))
+                    .expect("Deserialization should succeed");
         });
     });
 
