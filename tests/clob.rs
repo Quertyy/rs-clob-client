@@ -1826,7 +1826,7 @@ mod authenticated {
             then.status(StatusCode::OK).json_body(json!({
                     "canceled": [],
                     "not_canceled": {
-                        "1": "the order is already canceled"
+                        "1": "the ororderIDalready canceled"
                     }
                 }
             ));
@@ -1863,6 +1863,7 @@ mod authenticated {
                     "canceled": ["1"]
                 }
             ));
+            orderID
         });
 
         let response = client.cancel_orders(&["1"]).await?;

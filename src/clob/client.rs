@@ -27,7 +27,9 @@ use {tokio::sync::oneshot::Receiver, tokio::time, tokio_util::sync::Cancellation
 use crate::auth::builder::{Builder, Config as BuilderConfig};
 use crate::auth::state::{Authenticated, State, Unauthenticated};
 use crate::auth::{Credentials, Kind, Normal};
-use crate::clob::order_builder::{Limit, Market, OrderBuilder, generate_seed, generate_timestamp_ms};
+use crate::clob::order_builder::{
+    Limit, Market, OrderBuilder, generate_seed, generate_timestamp_ms,
+};
 use crate::clob::types::request::{
     BalanceAllowanceRequest, CancelMarketOrderRequest, DeleteNotificationsRequest,
     LastTradePriceRequest, MidpointRequest, OrderBookSummaryRequest, OrdersRequest,
@@ -1587,7 +1589,7 @@ impl<K: Kind> Client<Authenticated<K>> {
         let request = self
             .client()
             .request(Method::DELETE, format!("{}order", self.host()))
-            .json(&json!({ "orderId": order_id }))
+            .json(&json!({ "orderID": order_id }))
             .build()?;
         let headers = self.create_headers(&request).await?;
 
