@@ -36,7 +36,7 @@ mod unauthenticated {
         PriceRequest, SpreadRequest,
     };
     use polymarket_client_sdk::clob::types::response::{
-        FeeRateResponse, GeoblockResponse, LastTradePriceResponse, LastTradesPricesResponse,
+        GeoblockResponse, LastTradePriceResponse, LastTradesPricesResponse,
         MarketResponse, MidpointResponse, MidpointsResponse, NegRiskResponse,
         OrderBookSummaryResponse, OrderSummary, Page, PriceHistoryResponse, PricePoint,
         PriceResponse, PricesResponse, Rewards, SimplifiedMarketResponse, SpreadResponse,
@@ -419,29 +419,6 @@ mod unauthenticated {
     }
 
     #[tokio::test]
-    async fn fee_rate_should_succeed() -> anyhow::Result<()> {
-        let server = MockServer::start();
-        let client = Client::new(&server.base_url(), Config::default())?;
-
-        let mock = server.mock(|when, then| {
-            when.method(httpmock::Method::GET)
-                .path("/fee-rate")
-                .query_param("token_id", token_1().to_string());
-            then.status(StatusCode::OK)
-                .json_body(json!({ "base_fee": 0 }));
-        });
-
-        let response = client.fee_rate_bps(token_1()).await?;
-
-        let expected = FeeRateResponse::builder().base_fee(0).build();
-
-        assert_eq!(response, expected);
-        mock.assert();
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn set_tick_size_should_prepopulate_cache() -> anyhow::Result<()> {
         let server = MockServer::start();
         let client = Client::new(&server.base_url(), Config::default())?;
@@ -480,23 +457,6 @@ mod unauthenticated {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn set_fee_rate_bps_should_prepopulate_cache() -> anyhow::Result<()> {
-        let server = MockServer::start();
-        let client = Client::new(&server.base_url(), Config::default())?;
-
-        // Pre-populate the cache with 50 basis points (0.50%)
-        client.set_fee_rate_bps(token_1(), 50);
-
-        // This should return the cached value without making an HTTP request
-        let response = client.fee_rate_bps(token_1()).await?;
-
-        let expected = FeeRateResponse::builder().base_fee(50).build();
-
-        assert_eq!(response, expected);
-
-        Ok(())
-    }
 
     #[tokio::test]
     async fn invalidate_caches_should_clear_prepopulated_values() -> anyhow::Result<()> {

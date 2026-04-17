@@ -109,12 +109,6 @@ pub fn ensure_requirements(server: &MockServer, token_id: U256, tick_size: TickS
     });
 
     server.mock(|when, then| {
-        when.method(httpmock::Method::GET).path("/fee-rate");
-        then.status(StatusCode::OK)
-            .json_body(json!({ "base_fee": 0 }));
-    });
-
-    server.mock(|when, then| {
         when.method(httpmock::Method::GET)
             .path("/tick-size")
             .query_param("token_id", token_id.to_string());

@@ -38,7 +38,7 @@ use crate::clob::types::request::{
 };
 use crate::clob::types::response::{
     ApiKeysResponse, BalanceAllowanceResponse, BanStatusResponse, BuilderApiKeyResponse,
-    BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse, FeeRateResponse,
+    BuilderTradeResponse, CancelOrdersResponse, CurrentRewardResponse,
     GeoblockResponse, HeartbeatResponse, LastTradePriceResponse, LastTradesPricesResponse,
     MarketResponse, MarketRewardResponse, MidpointResponse, MidpointsResponse, NegRiskResponse,
     NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse, OrderScoringResponse,
@@ -236,7 +236,6 @@ impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
                 client: inner.client,
                 tick_sizes: inner.tick_sizes,
                 neg_risk: inner.neg_risk,
-                fee_rate_bps: inner.fee_rate_bps,
                 funder,
                 signature_type: self.signature_type.unwrap_or(SignatureType::Eoa),
                 salt_generator: self.salt_generator.unwrap_or(generate_seed),
@@ -420,8 +419,6 @@ struct ClientInner<S: State> {
     tick_sizes: DashMap<U256, TickSize>,
     /// Local cache representing whether this token is part of a `neg_risk` market
     neg_risk: DashMap<U256, bool>,
-    /// Local cache representing the fee rate in basis points per token ID
-    fee_rate_bps: DashMap<U256, u32>,
     /// The funder for this [`ClientInner`]. If funder is present, then `signature_type` cannot
     /// be [`SignatureType::Eoa`]. Conversely, if funder is absent, then `signature_type` cannot be
     /// [`SignatureType::Proxy`] or [`SignatureType::GnosisSafe`].
@@ -522,14 +519,13 @@ impl<S: State> Client<S> {
         &self.inner.host
     }
 
-    /// Invalidates all internal caches (tick sizes, neg risk flags, and fee rates).
+    /// Invalidates all internal caches (tick sizes and neg risk flags).
     ///
     /// This method clears the cached market configuration data, forcing subsequent
     /// requests to fetch fresh data from the API. Use this when you suspect
     /// cached data may be stale.
     pub fn invalidate_internal_caches(&self) {
         self.inner.tick_sizes.clear();
-        self.inner.fee_rate_bps.clear();
         self.inner.neg_risk.clear();
     }
 
@@ -573,28 +569,6 @@ impl<S: State> Client<S> {
     /// ```
     pub fn set_neg_risk(&self, token_id: U256, neg_risk: bool) {
         self.inner.neg_risk.insert(token_id, neg_risk);
-    }
-
-    /// Pre-populates the fee rate cache for a token, avoiding the HTTP call.
-    ///
-    /// Use this when you already have the fee rate data from another source
-    /// (e.g., cached locally or retrieved from a different API). The fee rate
-    /// is specified in basis points (bps), where 100 bps = 1%.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use polymarket_client_sdk::clob::{Client, Config};
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use polymarket_client_sdk::types::U256;
-    ///
-    /// let client = Client::new("https://clob.polymarket.com", Config::default())?;
-    /// client.set_fee_rate_bps(U256::ZERO, 10); // 0.10% fee
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn set_fee_rate_bps(&self, token_id: U256, fee_rate_bps: u32) {
-        self.inner.fee_rate_bps.insert(token_id, fee_rate_bps);
     }
 
     /// Checks if the CLOB API is healthy and operational.
@@ -844,42 +818,6 @@ impl<S: State> Client<S> {
 
         #[cfg(feature = "tracing")]
         tracing::trace!(token_id = %token_id, "cached neg_risk");
-
-        Ok(response)
-    }
-
-    /// Retrieves the trading fee rate for a market outcome token.
-    ///
-    /// Returns the fee rate in basis points (bps) charged on trades for this token.
-    /// For example, 10 bps = 0.10% fee. Results are cached internally to reduce API calls.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or the token ID is invalid.
-    pub async fn fee_rate_bps(&self, token_id: U256) -> Result<FeeRateResponse> {
-        if let Some(base_fee) = self.inner.fee_rate_bps.get(&token_id) {
-            #[cfg(feature = "tracing")]
-            tracing::trace!(token_id = %token_id, base_fee = *base_fee, "cache hit: fee_rate_bps");
-            return Ok(FeeRateResponse {
-                base_fee: *base_fee,
-            });
-        }
-
-        #[cfg(feature = "tracing")]
-        tracing::trace!(token_id = %token_id, "cache miss: fee_rate_bps");
-
-        let request = self
-            .client()
-            .request(Method::GET, format!("{}fee-rate", self.host()))
-            .query(&[("token_id", token_id.to_string())])
-            .build()?;
-
-        let response = crate::request::<FeeRateResponse>(&self.inner.client, request, None).await?;
-
-        self.inner.fee_rate_bps.insert(token_id, response.base_fee);
-
-        #[cfg(feature = "tracing")]
-        tracing::trace!(token_id = %token_id, "cached fee_rate_bps");
 
         Ok(response)
     }
@@ -1229,7 +1167,6 @@ impl Client<Unauthenticated> {
                 client,
                 tick_sizes: DashMap::new(),
                 neg_risk: DashMap::new(),
-                fee_rate_bps: DashMap::new(),
                 state: Unauthenticated,
                 funder: None,
                 signature_type: SignatureType::Eoa,
@@ -1345,7 +1282,6 @@ impl<K: Kind> Client<Authenticated<K>> {
                 client: inner.client,
                 tick_sizes: inner.tick_sizes,
                 neg_risk: inner.neg_risk,
-                fee_rate_bps: inner.fee_rate_bps,
                 // Reset the order parameters that were previously stored on the client
                 funder: None,
                 signature_type: SignatureType::Eoa,
@@ -2203,7 +2139,6 @@ impl Client<Authenticated<Normal>> {
             client: inner.client,
             tick_sizes: inner.tick_sizes,
             neg_risk: inner.neg_risk,
-            fee_rate_bps: inner.fee_rate_bps,
             funder: inner.funder,
             signature_type: inner.signature_type,
             salt_generator: inner.salt_generator,

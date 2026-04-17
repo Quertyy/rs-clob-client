@@ -85,12 +85,6 @@ pub struct NegRiskResponse {
     pub neg_risk: bool,
 }
 
-#[non_exhaustive]
-#[derive(Clone, Debug, Deserialize, Builder, PartialEq)]
-pub struct FeeRateResponse {
-    pub base_fee: u32,
-}
-
 /// Response from the Polymarket geoblock endpoint.
 ///
 /// This indicates whether the requesting IP address is blocked from placing orders
