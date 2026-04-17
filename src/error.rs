@@ -83,6 +83,13 @@ impl Error {
         .into()
     }
 
+    /// Returns `true` if this error indicates an order version mismatch from the API.
+    #[must_use]
+    pub fn is_order_version_mismatch(&self) -> bool {
+        self.downcast_ref::<Status>()
+            .is_some_and(|s| s.message.contains("order_version_mismatch"))
+    }
+
     #[must_use]
     pub fn missing_contract_config(chain_id: ChainId, neg_risk: bool) -> Self {
         MissingContractConfig { chain_id, neg_risk }.into()

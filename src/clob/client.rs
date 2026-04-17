@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::mem;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 #[cfg(feature = "heartbeats")]
 use std::time::Duration;
 
@@ -45,7 +46,7 @@ use crate::clob::types::response::{
     NotificationResponse, OpenOrderResponse, OrderBookSummaryResponse, OrderScoringResponse,
     OrdersScoringResponse, Page, PostOrderResponse, PriceHistoryResponse, PriceResponse,
     PricesResponse, RewardsPercentagesResponse, SimplifiedMarketResponse, SpreadResponse,
-    SpreadsResponse, TickSizeResponse, TotalUserEarningResponse, TradeResponse,
+    SpreadsResponse, TickSizeResponse, TotalUserEarningResponse, TradeResponse, VersionResponse,
     UserEarningResponse, UserRewardsEarningResponse,
 };
 #[cfg(feature = "rfq")]
@@ -239,6 +240,7 @@ impl<S: Signer, K: Kind> AuthenticationBuilder<'_, S, K> {
                 neg_risk: inner.neg_risk,
                 fee_infos: inner.fee_infos,
                 token_condition_map: inner.token_condition_map,
+                cached_version: AtomicU32::new(inner.cached_version.load(Ordering::Relaxed)),
                 funder,
                 signature_type: self.signature_type.unwrap_or(SignatureType::Eoa),
                 salt_generator: self.salt_generator.unwrap_or(generate_seed),
@@ -426,6 +428,8 @@ struct ClientInner<S: State> {
     fee_infos: DashMap<U256, FeeInfo>,
     /// Maps token IDs to their condition IDs, populated via `/clob-markets/`
     token_condition_map: DashMap<U256, String>,
+    /// Cached API order version (0 = not yet fetched)
+    cached_version: AtomicU32,
     /// The funder for this [`ClientInner`]. If funder is present, then `signature_type` cannot
     /// be [`SignatureType::Eoa`]. Conversely, if funder is absent, then `signature_type` cannot be
     /// [`SignatureType::Proxy`] or [`SignatureType::GnosisSafe`].
@@ -595,6 +599,48 @@ impl<S: State> Client<S> {
             .build()?;
 
         crate::request(&self.inner.client, request, None).await
+    }
+
+    /// Fetches the API order version. Defaults to 2 if the endpoint is absent.
+    ///
+    /// The result is cached internally. Use [`Self::resolve_version`] to force a refresh.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
+    pub async fn version(&self) -> Result<u32> {
+        let cached = self.inner.cached_version.load(Ordering::Relaxed);
+        if cached != 0 {
+            return Ok(cached);
+        }
+        self.resolve_version(true).await
+    }
+
+    /// Fetches the API order version, optionally forcing a refresh of the cached value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails.
+    pub async fn resolve_version(&self, force_update: bool) -> Result<u32> {
+        if !force_update {
+            let cached = self.inner.cached_version.load(Ordering::Relaxed);
+            if cached != 0 {
+                return Ok(cached);
+            }
+        }
+
+        let request = self
+            .client()
+            .request(Method::GET, format!("{}version", self.host()))
+            .build()?;
+
+        let response =
+            crate::request::<VersionResponse>(&self.inner.client, request, None).await?;
+
+        self.inner
+            .cached_version
+            .store(response.version, Ordering::Relaxed);
+        Ok(response.version)
     }
 
     /// Returns the current server timestamp in milliseconds since Unix epoch.
@@ -1228,6 +1274,7 @@ impl Client<Unauthenticated> {
                 neg_risk: DashMap::new(),
                 fee_infos: DashMap::new(),
                 token_condition_map: DashMap::new(),
+                cached_version: AtomicU32::new(0),
                 state: Unauthenticated,
                 funder: None,
                 signature_type: SignatureType::Eoa,
@@ -1345,6 +1392,7 @@ impl<K: Kind> Client<Authenticated<K>> {
                 neg_risk: inner.neg_risk,
                 fee_infos: inner.fee_infos,
                 token_condition_map: inner.token_condition_map,
+                cached_version: AtomicU32::new(inner.cached_version.load(Ordering::Relaxed)),
                 // Reset the order parameters that were previously stored on the client
                 funder: None,
                 signature_type: SignatureType::Eoa,
@@ -2204,6 +2252,7 @@ impl Client<Authenticated<Normal>> {
             neg_risk: inner.neg_risk,
             fee_infos: inner.fee_infos,
             token_condition_map: inner.token_condition_map,
+            cached_version: AtomicU32::new(inner.cached_version.load(Ordering::Relaxed)),
             funder: inner.funder,
             signature_type: inner.signature_type,
             salt_generator: inner.salt_generator,
