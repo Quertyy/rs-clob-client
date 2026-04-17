@@ -582,7 +582,7 @@ impl<S: State> Client<S> {
     pub async fn ok(&self) -> Result<String> {
         let request = self
             .client()
-            .request(Method::GET, self.host().to_owned())
+            .request(Method::GET, format!("{}ok", self.host()))
             .build()?;
 
         crate::request(&self.inner.client, request, None).await

@@ -55,7 +55,7 @@ mod unauthenticated {
         let client = Client::new(&server.base_url(), Config::default())?;
 
         let mock = server.mock(|when, then| {
-            when.method(httpmock::Method::GET).path("/");
+            when.method(httpmock::Method::GET).path("/ok");
             then.status(StatusCode::OK).body("\"OK\"");
         });
 
