@@ -674,15 +674,15 @@ mod tests {
         let builder = b256!("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
 
         let order = Order {
-            salt: U256::from(12345u64),
+            salt: U256::from(12345_u64),
             maker: alloy::primitives::Address::ZERO,
             signer: alloy::primitives::Address::ZERO,
-            tokenId: U256::from(123u64),
-            makerAmount: U256::from(10520000u64),
-            takerAmount: U256::from(21040000u64),
+            tokenId: U256::from(123_u64),
+            makerAmount: U256::from(10_520_000_u64),
+            takerAmount: U256::from(21_040_000_u64),
             side: 0,
             signatureType: 0,
-            timestamp: U256::from(1713398400000u64),
+            timestamp: U256::from(1_713_398_400_000_u64),
             metadata,
             builder,
         };
@@ -693,7 +693,7 @@ mod tests {
             order_type: OrderType::GTC,
             owner: ApiKey::nil(),
             post_only: None,
-            expiration: Some(1234567),
+            expiration: Some(1_234_567),
         };
 
         let value = to_value(&signed_order).expect("serialize SignedOrder");

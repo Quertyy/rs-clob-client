@@ -86,7 +86,7 @@ mod unauthenticated {
         // Second call should use cache and not hit the server
         let response2 = client.version().await?;
         assert_eq!(response2, 2);
-        mock.assert_hits(1); // still only 1 hit
+        mock.assert_calls(1); // still only 1 hit
 
         Ok(())
     }
@@ -1494,7 +1494,6 @@ mod authenticated {
     #[cfg(feature = "heartbeats")]
     use std::time::Duration;
 
-    use alloy::primitives::Signature;
     use alloy::signers::Signer as _;
     use alloy::signers::local::LocalSigner;
     use chrono::NaiveDate;
@@ -1511,7 +1510,7 @@ mod authenticated {
         TotalUserEarningResponse, TradeResponse, UserEarningResponse, UserRewardsEarningResponse,
     };
     use polymarket_client_sdk::clob::types::{
-        AssetType, OrderStatusType, OrderType, Side, SignableOrder, SignedOrder, TickSize,
+        AssetType, OrderStatusType, OrderType, Side, SignableOrder, TickSize,
         TradeStatusType, TraderSide,
     };
     #[cfg(feature = "heartbeats")]
@@ -2937,8 +2936,8 @@ mod authenticated {
         Ok(())
     }
 
-    #[cfg(feature = "heartbeats")]
     #[tokio::test]
+    #[cfg(feature = "heartbeats")]
     async fn stop_heartbeats_from_two_clones_should_fail_and_then_succeed_on_drop()
     -> anyhow::Result<()> {
         let server = MockServer::start();

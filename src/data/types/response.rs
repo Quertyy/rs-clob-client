@@ -556,7 +556,7 @@ mod tests {
 
     #[test]
     fn deserialize_optional_side_missing() {
-        let json = r#"{}"#;
+        let json = "{}";
         let result: TestSide = serde_json::from_str(json).unwrap();
         assert_eq!(result.side, None);
     }
@@ -565,7 +565,7 @@ mod tests {
     fn deserialize_optional_side_unknown_preserves_value() {
         let json = r#"{"side": "UNKNOWN_SIDE"}"#;
         let result: TestSide = serde_json::from_str(json).unwrap();
-        assert_eq!(result.side, Some(Side::Unknown("UNKNOWN_SIDE".to_string())));
+        assert_eq!(result.side, Some(Side::Unknown("UNKNOWN_SIDE".to_owned())));
     }
 
     #[test]

@@ -256,7 +256,6 @@ pub(crate) mod l2 {
 }
 
 /// Specific structs and methods used in configuring and authenticating the Builder flow
-
 #[must_use]
 fn to_message(request: &Request, timestamp: Timestamp) -> String {
     let method = request.method();
@@ -305,8 +304,8 @@ mod tests {
     #[cfg(feature = "clob")]
     const PRIVATE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
-    #[cfg(feature = "clob")]
     #[tokio::test]
+    #[cfg(feature = "clob")]
     async fn l1_headers_should_succeed() -> anyhow::Result<()> {
         let signer = LocalSigner::from_str(PRIVATE_KEY)?.with_chain_id(Some(AMOY));
 
@@ -330,8 +329,8 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "clob")]
     #[tokio::test]
+    #[cfg(feature = "clob")]
     async fn l2_headers_should_succeed() -> anyhow::Result<()> {
         let signer = LocalSigner::from_str(PRIVATE_KEY)?;
 

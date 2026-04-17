@@ -892,7 +892,7 @@ impl<S: State> Client<S> {
         let response =
             crate::request::<MarketDetailsResponse>(&self.inner.client, request, None).await?;
 
-        if let Some(ref fd) = response.fee_details {
+        if let Some(fd) = &response.fee_details {
             let fee_info = FeeInfo {
                 rate: fd.rate,
                 exponent: fd.exponent,

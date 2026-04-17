@@ -56,7 +56,7 @@ pub const PRIVATE_KEY_VAR: &str = "POLYMARKET_PRIVATE_KEY";
 /// pUSD collateral token address on Polygon mainnet.
 ///
 /// V2 exchange uses pUSD (Polymarket USD) instead of USDC.e.
-/// Wrap USDC.e to pUSD via the CollateralOnramp contract.
+/// Wrap USDC.e to pUSD via the `CollateralOnramp` contract.
 pub const PUSD: Address = address!("0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB");
 
 /// Timestamp in seconds since [`std::time::UNIX_EPOCH`]

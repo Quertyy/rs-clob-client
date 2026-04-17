@@ -1437,11 +1437,11 @@ mod v2_fields {
                 .price(dec!(0.5))
                 .size(dec!(21.04))
                 .side(Side::Buy)
-                .expiration(1234567)
+                .expiration(1_234_567)
                 .build()
                 .await?;
 
-            assert_eq!(order.expiration, Some(1234567));
+            assert_eq!(order.expiration, Some(1_234_567));
 
             Ok(())
         }
