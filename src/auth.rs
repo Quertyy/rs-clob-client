@@ -313,7 +313,7 @@ mod tests {
         );
         assert_eq!(
             headers[l1::POLY_ADDRESS],
-            "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+            "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
         );
         assert_eq!(headers[l1::POLY_NONCE], "23");
         assert_eq!(
@@ -349,7 +349,7 @@ mod tests {
 
         assert_eq!(
             headers[l2::POLY_ADDRESS],
-            "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+            "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
         );
         assert_eq!(
             headers[l2::POLY_PASSPHRASE],
