@@ -265,7 +265,11 @@ fn body_to_string(body: &Body) -> Option<String> {
 }
 
 fn hmac(secret: &SecretString, message: &str) -> Result<String> {
-    let decoded_secret = STANDARD.decode(secret.expose_secret())?;
+    let normalized = secret
+        .expose_secret()
+        .replace('-', "+")
+        .replace('_', "/");
+    let decoded_secret = STANDARD.decode(&normalized)?;
     let mut mac = Hmac::<Sha256>::new_from_slice(&decoded_secret)?;
     mac.update(message.as_bytes());
 
