@@ -7,7 +7,7 @@ pub use alloy::signers::Signer;
 pub use alloy::signers::local::LocalSigner;
 use async_trait::async_trait;
 use base64::Engine as _;
-use base64::engine::general_purpose::URL_SAFE;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE};
 use hmac::{Hmac, Mac as _};
 use reqwest::header::HeaderMap;
 use reqwest::{Body, Request};
@@ -145,7 +145,6 @@ pub(crate) mod l1 {
 
     use alloy::core::sol;
     use alloy::dyn_abi::Eip712Domain;
-    use alloy::hex::ToHexExt as _;
     use alloy::primitives::{ChainId, U256};
     use alloy::signers::Signer;
     use alloy::sol_types::SolStruct as _;
@@ -195,10 +194,7 @@ pub(crate) mod l1 {
         let signature = signer.sign_hash(&hash).await?;
 
         let mut map = HeaderMap::new();
-        map.insert(
-            POLY_ADDRESS,
-            signer.address().encode_hex_with_prefix().parse()?,
-        );
+        map.insert(POLY_ADDRESS, signer.address().to_checksum(None).parse()?);
         map.insert(POLY_NONCE, naive_nonce.to_string().parse()?);
         map.insert(POLY_SIGNATURE, signature.to_string().parse()?);
         map.insert(POLY_TIMESTAMP, timestamp.to_string().parse()?);
@@ -209,7 +205,6 @@ pub(crate) mod l1 {
 
 #[cfg(feature = "clob")]
 pub(crate) mod l2 {
-    use alloy::hex::ToHexExt as _;
     use reqwest::Request;
     use reqwest::header::HeaderMap;
     use secrecy::ExposeSecret as _;
@@ -235,10 +230,7 @@ pub(crate) mod l2 {
 
         let mut map = HeaderMap::new();
 
-        map.insert(
-            POLY_ADDRESS,
-            state.address.encode_hex_with_prefix().parse()?,
-        );
+        map.insert(POLY_ADDRESS, state.address.to_checksum(None).parse()?);
         map.insert(POLY_API_KEY, state.credentials.key.to_string().parse()?);
         map.insert(
             POLY_PASSPHRASE,
@@ -273,7 +265,7 @@ fn body_to_string(body: &Body) -> Option<String> {
 }
 
 fn hmac(secret: &SecretString, message: &str) -> Result<String> {
-    let decoded_secret = URL_SAFE.decode(secret.expose_secret())?;
+    let decoded_secret = STANDARD.decode(secret.expose_secret())?;
     let mut mac = Hmac::<Sha256>::new_from_slice(&decoded_secret)?;
     mac.update(message.as_bytes());
 
